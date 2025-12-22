@@ -19,15 +19,15 @@ namespace PhantomBrigade.SDK.ModTools
 {
     using Data;
     using Mods;
-    
+
     [Serializable, InlineProperty, HideReferenceObjectPicker]
     public class ConfigsVersion
     {
         public const string versionExpected = "2.1.0";
-        
+
         [HideInInspector]
         public string version;
-        
+
         [GUIColor ("$" + nameof (GetColor))]
         [InfoBox ("$" + nameof (GetWarningText), InfoMessageType.Warning, VisibleIf = nameof (IsWarningVisible))]
         [HideLabel, SuffixLabel ("Configs version", true), ShowInInspector]
@@ -97,7 +97,7 @@ namespace PhantomBrigade.SDK.ModTools
         [PropertySpace (2f)]
         [HideLabel]
         public bool enabled = true;
-        
+
         [HideInInspector]
         public bool relative = false;
 
@@ -110,7 +110,7 @@ namespace PhantomBrigade.SDK.ModTools
             get => GetFinalPath ();
             set => UpdatePathFromInput (value);
         }
-        
+
         [ReadOnly, GUIColor(nameof(GetPathColor)), DisplayAsString (TextAlignment.Right)]
         [HideLabel, ShowIf(nameof(relative))]
         public string path;
@@ -127,22 +127,22 @@ namespace PhantomBrigade.SDK.ModTools
         {
             if (string.IsNullOrEmpty (pathInput))
                 return;
-            
+
             if (relative)
             {
                 if (parent == null)
                 {
                     Debug.LogWarning ($"Relative path can't be updated, no parent mod reference available. Reload the mod!");
-                    return;    
+                    return;
                 }
-                
+
                 var pathMod = parent.GetModPathProject ();
                 if (!pathInput.StartsWith (pathMod))
                 {
                     Debug.LogWarning ($"Relative path invalid, doesn't start in parent directory:\n- Mod: {pathMod}\n- Path: {path}");
                     return;
                 }
-            
+
                 path = pathInput.Substring (pathMod.Length + 1);
             }
             else
@@ -155,7 +155,7 @@ namespace PhantomBrigade.SDK.ModTools
         {
             if (string.IsNullOrEmpty (path))
                 return string.Empty;
-            
+
             if (!relative)
                 return path;
 
@@ -171,7 +171,7 @@ namespace PhantomBrigade.SDK.ModTools
         {
             if (string.IsNullOrEmpty (path))
                 return false;
-            
+
             var pathFinal = GetFinalPath ();
             return File.Exists (pathFinal);
         }
@@ -324,7 +324,7 @@ namespace PhantomBrigade.SDK.ModTools
         // due to lowercase restrictions becoming optional in UtilitiesYAML
         [VerticalGroup (OdinGroup.Name.Project, Order = OdinGroup.Order.Project)]
         [LabelText ("ID")]
-        public string id => key;
+        public string id => metadata == null ? key : metadata.id;
 
         // Actual mod data folder (separated from where these YAML configs are saved)
         // The field is here to make it easy to display where mod folders are located.
@@ -347,10 +347,10 @@ namespace PhantomBrigade.SDK.ModTools
         public void EnableConfigs ()
         {
             ModToolsExperimental.CopyConfigsFromSDK (this);
-            
+
             metadata.isConfigEnabled = true;
             metadata.includesConfigOverrides = true;
-            
+
             ModToolsHelper.SaveMod (this);
 
             if (GUIHelper.CurrentWindow != null)
@@ -462,7 +462,7 @@ namespace PhantomBrigade.SDK.ModTools
                 Debug.LogWarning ("Failed to delete user mod folder -- encountered an exception | path: " + dirPathUser + "\n" + ioe);
             }
         }
-        
+
         [ShowIf (nameof(IsConfigsVersionVisible))]
         [HideLabel, YamlIgnore]
         public ConfigsVersion configsVersion;
@@ -471,7 +471,7 @@ namespace PhantomBrigade.SDK.ModTools
         {
             var pathConfigs = GetModPathConfigs ();
             configsVersion = null;
-            
+
             if (hasProjectFolder && Directory.Exists (pathConfigs))
             {
                 var configsVersionPath = DataPathHelper.GetCombinedCleanPath (pathConfigs, "dataVersion.yaml");
@@ -550,7 +550,7 @@ namespace PhantomBrigade.SDK.ModTools
         public override void OnAfterDeserialization (string key)
         {
             base.OnAfterDeserialization (key);
-            
+
             if (!string.IsNullOrEmpty (projectPath))
             {
                 var filePath = DataPathHelper.GetCombinedCleanPath (projectPath, "metadata.yaml");
@@ -580,10 +580,10 @@ namespace PhantomBrigade.SDK.ModTools
 
             if (textEdits != null)
                 textEdits.OnAfterDeserialization ();
-            
+
             if (libraryDLLs != null)
                 libraryDLLs.OnAfterDeserialization (this);
-            
+
             if (extraFiles != null)
                 extraFiles.OnAfterDeserialization (this);
         }
@@ -593,7 +593,7 @@ namespace PhantomBrigade.SDK.ModTools
             if (libraryDLLs != null)
                 libraryDLLs.OnAfterDeserialization (this);
         }
-        
+
         private void OnAfterDeserializationFiles ()
         {
             if (extraFiles != null)
@@ -610,7 +610,7 @@ namespace PhantomBrigade.SDK.ModTools
         {
             base.OnBeforeSerialization ();
             SyncMetadata ();
-            
+
             if (string.IsNullOrEmpty (projectPath))
             {
                 Debug.LogWarning ("Couldn't save metadata.yaml, project folder path is null or empty!");
@@ -678,11 +678,11 @@ namespace PhantomBrigade.SDK.ModTools
             var configOverridesPath = DataPathHelper.GetCombinedCleanPath (GetModPathProject (), overridesFolderName);
             if (Directory.Exists (configOverridesPath))
                 Directory.Delete (configOverridesPath, true);
-            
+
             var configEditsPath = DataPathHelper.GetCombinedCleanPath (GetModPathProject (), editsFolderName);
             if (Directory.Exists (configEditsPath))
                 Directory.Delete (configEditsPath, true);
-            
+
             var assetBundlesPath = DataPathHelper.GetCombinedCleanPath (GetModPathProject (), assetBundlesFolderName);
             if (Directory.Exists (assetBundlesPath))
                 Directory.Delete (assetBundlesPath, true);
@@ -715,10 +715,10 @@ namespace PhantomBrigade.SDK.ModTools
                 {
                     continue;
                 }
-                
+
                 var pathSource = fr.GetFinalPath ();
                 var fileSource = new FileInfo (pathSource);
-                
+
                 if (!fileSource.Exists)
                 {
                     Debug.Log ($"External file doesn't exist: {pathSource}");
@@ -727,7 +727,7 @@ namespace PhantomBrigade.SDK.ModTools
 
                 var filename = Path.GetFileName (pathSource);
                 var pathDest = DataPathHelper.GetCombinedCleanPath (destPath, filename);
-                
+
                 if (string.Equals ("metadata.yaml", filename))
                     continue;
 
@@ -752,7 +752,7 @@ namespace PhantomBrigade.SDK.ModTools
                 Directory.CreateDirectory (dirTo);
             }
         }
-        
+
         bool spaceAfterWorkingPath => !showUserModFolder;
         bool showUserModFolder => Directory.Exists (userModFolder);
         bool spaceAfterUserModFolder => showUserModFolder;

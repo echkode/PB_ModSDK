@@ -120,7 +120,7 @@ namespace PhantomBrigade.Mods
                 texPreviewDisplayed = SteamWorkshopHelper.GetPreviewTexShared ();
                 texIsFallback = true;
             }
-            
+
             if (texPreviewDisplayed == null)
             {
                 GUILayout.BeginHorizontal ();
@@ -137,21 +137,21 @@ namespace PhantomBrigade.Mods
             var width = Mathf.Min (GUIHelper.ContextWidth - 88f - 15f, previewHeight);
             var shrink = width / (float)texPreviewDisplayed.width;
             var height = texPreviewDisplayed.height * shrink;
-            
+
             var gc = GUI.color;
             var gcSecondary = GUI.color.WithAlpha (0.8f);
-            
+
             using (var horizontalScope = new GUILayout.HorizontalScope ())
             {
                 using (var verticalScope = new GUILayout.VerticalScope ("Box"))
                 {
                     GUILayout.Space (2f);
-                    
+
                     GUILayout.BeginHorizontal ();
-                    
+
                     // Start of 1st column
                     GUILayout.BeginVertical ();
-                    
+
                     GUILayout.BeginHorizontal ();
                     GUILayout.FlexibleSpace ();
                     if (GUILayout.Button ("Open folder", EditorStyles.miniButton, GUILayout.Width (width)))
@@ -170,13 +170,13 @@ namespace PhantomBrigade.Mods
                         hueOverride = EditorGUILayout.Slider ("", hueOverride, 0f, 1f);
                         GUI.color = gc;
                     }
-                    
+
                     // End of 2nd column
                     GUILayout.EndVertical ();
-                    
+
                     // Start of 2nd column
                     GUILayout.BeginVertical ();
-                    
+
                     if (texIsFallback)
                     {
                         if (GUILayout.Button ("Create custom", EditorStyles.miniButton, GUILayout.Width (width)))
@@ -186,45 +186,45 @@ namespace PhantomBrigade.Mods
                     {
                         if (GUILayout.Button ("Save", EditorStyles.miniButton, GUILayout.Width (width)))
                             SavePreviewToFile ();
-                        
+
                         GUI.color = gcSecondary;
                         if (GUILayout.Button ("Set hue", EditorStyles.miniButton, GUILayout.Width (width)))
                             OverrideHue ();
                         GUI.color = gc;
-                        
+
                         GUILayout.Label ("Overriding the hue can\nbe a quick way to make\na custom thumbnail", EditorStyles.centeredGreyMiniLabel, GUILayout.Width (width));
                     }
-                    
+
                     // End of 2nd column
                     GUILayout.EndVertical ();
-                    
+
                     // Start of 3rd column
                     GUILayout.BeginVertical ();
-                    
+
                     if (GUILayout.Button ("Reload", EditorStyles.miniButton))
                         RefreshTexturePreview ();
-                    
+
                     // The label drawing is the easiest way to display textures, but it's distorted by Editor GUI and won't show true color
                     GUILayout.Label (texPreviewDisplayed, GUILayout.Width (width), GUILayout.Height (height));
-                    
+
                     // We can steal the rect from that easy method and draw a raw texture instead
                     var rect = GUILayoutUtility.GetLastRect ();
                     EditorGUI.DrawPreviewTexture(rect, texPreviewDisplayed);
-                    
+
                     if (texIsFallback)
                         GUILayout.Label ("Default image", EditorStyles.centeredGreyMiniLabel);
                     else
                         GUILayout.Label (texFilename, EditorStyles.centeredGreyMiniLabel);
-                    
+
                     // End of 3rd column
                     GUILayout.EndVertical ();
-                    
+
                     GUILayout.EndHorizontal ();
                     GUILayout.Space (2f);
                 }
             }
         }
-        
+
         private void RefreshTexturePreview ()
         {
             texLoadAttempt = true;
@@ -261,7 +261,7 @@ namespace PhantomBrigade.Mods
                 Debug.LogWarning ("Preview texture not loaded");
                 return false;
             }
-            
+
             if (!texPreview.isReadable)
             {
                 Debug.LogWarning ("Preview texture not readable");
@@ -279,7 +279,7 @@ namespace PhantomBrigade.Mods
                 Debug.LogWarning ("Couldn't create a unique preview");
                 return;
             }
-            
+
             SavePreviewToFile ();
         }
 
@@ -294,7 +294,7 @@ namespace PhantomBrigade.Mods
                 Debug.LogWarning ($"Failed to find mod project directory {modPath}, can't save the preview");
                 return;
             }
-            
+
             var texPath = DataPathHelper.GetCombinedCleanPath (modPath, ModWorkshopData.texFilename);
             var png = texPreview.EncodeToPNG ();
             File.WriteAllBytes (texPath, png);
@@ -302,14 +302,14 @@ namespace PhantomBrigade.Mods
         }
 
         private float hueOverride = 0f;
-        
+
         private void OverrideHue ()
         {
             if (!IsTexPreviewAvailable ())
                 return;
 
             hueOverride = Mathf.Clamp01 (hueOverride);
-            
+
             // Crude path, sets everything to one hue
             var pixels = texPreview.GetPixels ();
             for (int i = 0; i < pixels.Length; i++)
@@ -352,7 +352,7 @@ namespace PhantomBrigade.Mods
         public Color color => Color.HSVToRGB (colorHue, 1f, 1f);
 
         #if PB_MODSDK
-        [HideInInspector]
+        [PropertyOrder (-10)]
         #endif
         [LabelText ("ID"), ReadOnly]
         public string id;
@@ -379,10 +379,10 @@ namespace PhantomBrigade.Mods
 
         [ReadOnly, PropertyTooltip ("Add textures into the local Textures folder under the mod project folder to enable this flag")]
         public bool includesTextures;
-        
+
         [ReadOnly, PropertyTooltip ("Add text edits via the bottom right component menu to enable this flag")]
         public bool includesLocalizationEdits;
-        
+
         public bool includesLocalizations;
 
         [ReadOnly, PropertyTooltip ("Add asset bundles via the bottom right component menu to enable this flag")]
@@ -391,7 +391,7 @@ namespace PhantomBrigade.Mods
         [InfoBox ("This mod might not load in PB 2.x if you leave this unchecked or do not enter \"2.0\" into gameVersionMin.", InfoMessageType.Warning, VisibleIf = "IsVersionWarningVisible")]
         [LabelText ("2.0 Compatible")]
         public bool gameVersion2Compatible;
-        
+
         public string gameVersionMin;
 
         [YamlIgnore, ReadOnly, HideInInspector]

@@ -47,7 +47,7 @@ namespace PhantomBrigade.SDK.ModTools
             if (!loadedOnce)
                 LoadAll ();
         }
-        
+
         [HideReferenceObjectPicker]
         public class ModToolsSourcePath
         {
@@ -59,33 +59,33 @@ namespace PhantomBrigade.SDK.ModTools
 
             private void OpenPath ()
             {
-                if (IsPathValid ()) 
+                if (IsPathValid ())
                     Application.OpenURL ("file://" + path);
             }
         }
-        
+
         public class ModToolsSettings
         {
             [LabelText ("Custom project folders")]
             [PropertyTooltip ("Use this list to save directories where you store mod source files. By default, the game only loads mod projects from PhantomBrigade/ModsSource.")]
-            [ListDrawerSettings (ShowPaging = false, CustomAddFunction = "@new ModToolsSourcePath ()")] 
+            [ListDrawerSettings (ShowPaging = false, CustomAddFunction = "@new ModToolsSourcePath ()")]
             public List<ModToolsSourcePath> customSourceDirectories = new List<ModToolsSourcePath> ();
         }
-        
+
         [Title ("Mod project manager", TitleAlignment = TitleAlignments.Centered)]
         [ShowInInspector, PropertyOrder (-110)]
         [PropertyTooltip ("The folder where mod projects are stored. If this folder does not exist, it will be created when you add your first mod.")]
         [PropertySpace (0f, 3f)]
         [LabelText ("Default source folder"), LabelWidth (160f), ReadOnly, ElidedPath]
         public static string folderPathProjectsDefault;
-        
+
         [PropertyOrder (-90)]
         [ShowInInspector, FoldoutGroup ("Settings"), HideReferenceObjectPicker, HideDuplicateReferenceBox, HideLabel]
         private static ModToolsSettings settings = null;
-        
+
         private static List<string> folderPathsProjects = new List<string> ();
-        
-        
+
+
 
         // Parts providing a way to add a new mod
         // Wrapped in a subclass to separate utility fields like error strings, reduce the need for top level grouping attributes etc.
@@ -94,25 +94,44 @@ namespace PhantomBrigade.SDK.ModTools
         [HideReferenceObjectPicker]
         public class ModSetup
         {
-            [FoldoutGroup ("New mod", false), HorizontalGroup ("New mod/H")]
-            [InfoBoxBottom ("@" + nameof(idError), InfoMessageType.Error, VisibleIf = nameof(isIDErrorVisible), OverlayColor = "#FFCCCC")]
+            [FoldoutGroup (OdinGroup.Name.NewMod, false)]
+            [HorizontalGroup (OdinGroup.Name.ModName, Order = OdinGroup.Order.ModID)]
+            [InfoBoxBottom ("@" + nameof(idError), InfoMessageType.Error, VisibleIf = nameof(IsIDErrorVisible), OverlayColor = "#FFCCCC")]
             [OnValueChanged (nameof(ValidateNewID))]
             [HideLabel, SuffixLabel ("Unique ID & folder name", true)]
             public string id;
 
-            [FoldoutGroup ("New mod"), HorizontalGroup ("New mod/H", 80f)]
-            [EnableIf (nameof(creationPossible))]
+            [HorizontalGroup (OdinGroup.Name.ModName, 80f)]
+            [EnableIf (nameof(CreationPossible))]
             [Button ("Create", 21)]
-            private void CreateMod ()
+            void CreateMod ()
             {
                 ValidateNewID ();
                 if (!idValid)
+                {
                     return;
-
+                }
+                if (useAlternateDirectory && !directoryNameValid)
+                {
+                    return;
+                }
+                var pathProject = string.IsNullOrEmpty (pathSource) ? folderPathProjectsDefault : pathSource;
+                if (useAlternateDirectory && !string.IsNullOrEmpty (directoryName))
+                {
+                    pathProject = DataPathHelper.GetCombinedCleanPath (pathProject, directoryName);
+                    if (!Directory.Exists (pathProject))
+                    {
+                        Directory.CreateDirectory (pathProject);
+                    }
+                }
+                else
+                {
+                    pathProject = DataPathHelper.GetCombinedCleanPath (pathProject, id);
+                }
                 var modData = new DataContainerModData ()
                 {
                     key = id,
-                    projectPath = $"{folderPathProjectsDefault}/{id}",
+                    projectPath = pathProject,
                     metadata = new ModMetadata
                     {
                         id = id,
@@ -129,17 +148,77 @@ namespace PhantomBrigade.SDK.ModTools
                 id = string.Empty;
                 idError = null;
                 idValid = true;
+                directoryName = "";
+                directoryNameValid = true;
+                directoryNameError = "";
+                useAlternateDirectory = false;
             }
 
-            private bool creationPossible => !string.IsNullOrEmpty (id) && idValid;
-            private bool idValid;
-            private string idError;
-            private bool isIDErrorVisible => !idValid && !string.IsNullOrEmpty (idError);
-            private const string descDefault = "Enter your description here. You can use some BBCode tags here, such as [b]bold[/b], [i]italic[/i] and [u]underlined[/u] text.\n\nYou can also embed more links if the URL field above is not enough:\n- [url=www.google.com][u]Example text[/u][/url]";
+            [VerticalGroup (OdinGroup.Name.SourcePath, Order = OdinGroup.Order.SourcePath)]
+            [ValueDropdown (nameof(GetSourcePaths), FlattenTreeView = true)]
+            [LabelText ("Source Directory")]
+            public string pathSource;
 
-            private void ValidateNewID ()
+            [VerticalGroup (OdinGroup.Name.SourcePath)]
+            [OnValueChanged (nameof(PopulateDirectoryName))]
+            public bool useAlternateDirectory;
+
+            [VerticalGroup (OdinGroup.Name.SourcePath)]
+            [ShowIf(nameof(useAlternateDirectory))]
+            [OnValueChanged (nameof(ValidateDirectoryName))]
+            [InfoBoxBottom ("@" + nameof(directoryNameError), InfoMessageType.Error, VisibleIf = nameof(IsDirectoryNameErrorVisible), OverlayColor = "#FFCCCC")]
+            public string directoryName;
+
+            void ValidateNewID ()
             {
                 idValid = ModToolsHelper.ValidateModID (id, null, mods, out idError);
+            }
+
+            void PopulateDirectoryName ()
+            {
+                if (useAlternateDirectory && string.IsNullOrEmpty (directoryName))
+                {
+                    directoryName = id;
+                }
+            }
+
+            void ValidateDirectoryName ()
+            {
+                directoryNameValid = ModToolsHelper.ValidateModID (directoryName, null, null, out var err);
+                if (err.StartsWith ("Mod ID"))
+                {
+                    err = "Directory name" + err.Substring("Mod ID".Length);
+                }
+                directoryNameError = err;
+            }
+
+            List<string> GetSourcePaths () => DataManagerMod.folderPathsProjects;
+
+            bool CreationPossible => !string.IsNullOrEmpty (id) && idValid && (!useAlternateDirectory || (!string.IsNullOrEmpty (directoryName) && directoryNameValid));
+            bool IsIDErrorVisible => !idValid && !string.IsNullOrEmpty (idError);
+            bool IsDirectoryNameErrorVisible => !directoryNameValid && !string.IsNullOrEmpty (directoryNameError);
+
+            bool idValid;
+            string idError;
+            bool directoryNameValid = true;
+            string directoryNameError;
+
+            const string descDefault = "Enter your description here. You can use some BBCode tags here, such as [b]bold[/b], [i]italic[/i] and [u]underlined[/u] text.\n\nYou can also embed more links if the URL field above is not enough:\n- [url=www.google.com][u]Example text[/u][/url]";
+
+            static class OdinGroup
+            {
+                public static class Name
+                {
+                    public const string NewMod = "New Mod";
+                    public const string ModName = NewMod + "/Name";
+                    public const string SourcePath = NewMod + "/Path";
+                }
+
+                public static class Order
+                {
+                    public const float ModID = 0f;
+                    public const float SourcePath = 1f;
+                }
             }
         }
 
@@ -243,7 +322,7 @@ namespace PhantomBrigade.SDK.ModTools
 
                 var filePath = DataPathHelper.GetCombinedCleanPath (projectPath, filenameMain + extensionYAML);
                 // Debug.Log ($"Loading project {id} | Cached project file path: {filePath}");
-                
+
                 var modData = UtilitiesYAML.LoadDataFromFile<DataContainerModData> (filePath, true, false);
                 if (modData == null)
                 {
@@ -289,7 +368,7 @@ namespace PhantomBrigade.SDK.ModTools
                     Debug.LogWarning ($"Can't save project {modData.id}: project path doesn't exist");
                     return;
                 }
-                
+
                 var id = modData.key;
                 if (!ModToolsHelper.ValidateModID (id, modData, mods, out var idError))
                 {
@@ -299,7 +378,7 @@ namespace PhantomBrigade.SDK.ModTools
                         Debug.LogWarning ($"Can't save project: \"{id}\" {idError}");
                     return;
                 }
-                
+
                 if (!Directory.Exists (projectPath))
                 {
                     if (projectPath.Contains (folderPathProjectsDefault))
@@ -318,7 +397,7 @@ namespace PhantomBrigade.SDK.ModTools
                         return;
                     }
                 }
-                
+
                 modData.OnBeforeSerialization ();
 
                 var filePath = DataPathHelper.GetCombinedCleanPath (modData.projectPath, filenameMain + extensionYAML);
@@ -597,7 +676,7 @@ namespace PhantomBrigade.SDK.ModTools
                 if (modData != null)
                     ModToolsExperimental.GenerateModFiles (modSelected, modData.ExportToArchiveFinalize);
             }
-            
+
             [FoldoutGroup("Utilities")]
             [HorizontalGroup ("Utilities/Bt3")]
             [EnableIf (nameof(IsConfigEntryAllowed))]
@@ -609,22 +688,22 @@ namespace PhantomBrigade.SDK.ModTools
                 if (modData == null)
                     return;
 
-                var projectPath = modData.GetModPathProject (); 
-                if (!EditorUtility.DisplayDialog 
+                var projectPath = modData.GetModPathProject ();
+                if (!EditorUtility.DisplayDialog
                 (
-                    "Reset configs from SDK", 
-                    $"Are you sure you'd like to replace the Configs folder in the selected mod (ID {modData.id}) with the original files from the SDK? This operation can not be reverted. Back up your changes if you are not sure.\n\nProject folder: \n{projectPath}", 
-                    "Confirm", 
+                    "Reset configs from SDK",
+                    $"Are you sure you'd like to replace the Configs folder in the selected mod (ID {modData.id}) with the original files from the SDK? This operation can not be reverted. Back up your changes if you are not sure.\n\nProject folder: \n{projectPath}",
+                    "Confirm",
                     "Cancel")
                 )
                 {
                     return;
                 }
-                
+
                 ModToolsExperimental.CopyConfigsFromSDK (modData);
                 DeselectForEditing ();
             }
-            
+
             // [GUIColor ("@ModToolsColors." + nameof (ModToolsColors.HighlightNeonRed))]
             [FoldoutGroup("Utilities")]
             [HorizontalGroup ("Utilities/Bt3")]
@@ -636,7 +715,7 @@ namespace PhantomBrigade.SDK.ModTools
                 if (modData != null)
                     ModToolsExperimental.GenerateModFiles (modSelected, null);
             }
-            
+
             [FoldoutGroup("Utilities")]
             [HorizontalGroup ("Utilities/Bt3")]
             [Button (SdfIconType.Files, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Import from mod")]
@@ -646,12 +725,12 @@ namespace PhantomBrigade.SDK.ModTools
                 var modData = modSelected;
                 if (modData == null)
                    return;
-                
+
                 var pathProject = modData.GetModPathProject ();
                 var pathSelected = EditorUtility.OpenFolderPanel ("Select Folder", pathProject, "");
                 ModToolsExperimental.CopyConfigsFromExportedMod (modData, pathSelected);
             }
-            
+
             public void OnSelectionChange ()
             {
                 // Reset inputs
@@ -674,7 +753,7 @@ namespace PhantomBrigade.SDK.ModTools
         private static void LoadSettings ()
         {
             folderPathProjectsDefault = DataPathHelper.GetCombinedCleanPath (DataPathHelper.GetUserFolder (), "ModsSource");
-            
+
             folderPathsProjects.Clear ();
             folderPathsProjects.Add (folderPathProjectsDefault);
 
@@ -686,7 +765,7 @@ namespace PhantomBrigade.SDK.ModTools
                 if (settings.customSourceDirectories == null)
                     settings.customSourceDirectories = new List<ModToolsSourcePath> ();
             }
-            
+
             if (settings == null)
             {
                 settings = new ModToolsSettings
@@ -701,13 +780,15 @@ namespace PhantomBrigade.SDK.ModTools
                 {
                     if (p == null || string.IsNullOrEmpty (p.path))
                         continue;
-                    
+
                     if (!Directory.Exists (p.path))
                         continue;
-                    
+
                     folderPathsProjects.Add (p.path);
                 }
             }
+
+            modSetup.pathSource = folderPathsProjects.FirstOrDefault ();
         }
 
         [PropertyOrder (-100)]
@@ -722,7 +803,7 @@ namespace PhantomBrigade.SDK.ModTools
                     customSourceDirectories = new List<ModToolsSourcePath> ()
                 };
             }
-            
+
             var settingsPath = $"{DataPathHelper.GetApplicationFolder ()}ConfigsModTools/";
             UtilitiesYAML.SaveToFile (settingsPath, "user_settings.yaml", settings);
         }
@@ -742,7 +823,7 @@ namespace PhantomBrigade.SDK.ModTools
 
             mods.Clear ();
             modsLoadedPaths.Clear ();
-            
+
             foreach (var path in folderPathsProjects)
             {
                 var modsLoaded = UtilitiesYAML.LoadDecomposedDictionary<DataContainerModData>
@@ -765,7 +846,7 @@ namespace PhantomBrigade.SDK.ModTools
                             Debug.LogWarning ($"Mod {id} at path {path} couldn't be loaded due to invalid folder name (ID): {errorDesc}");
                         continue;
                     }
-                    
+
                     var mod = kvp.Value;
 
                     if (mods.ContainsKey (id))
@@ -791,7 +872,7 @@ namespace PhantomBrigade.SDK.ModTools
 
             // Debug.LogWarning ($"Discovered project files: {modsLoaded.ToStringFormattedKeyValuePairs (true, toStringOverride: (x) => $"ID: {x.id} / Key: {x.key}")}");
         }
-        
+
         private static Dictionary<string, List<Assembly>> assembliesPerMod = new Dictionary<string, List<Assembly>> ();
         private static int assembliesExternalLoaded = 0;
         private static bool assembliesExternalInitialized = false;
@@ -820,11 +901,11 @@ namespace PhantomBrigade.SDK.ModTools
                 var modData = kvp.Value;
                 if (modData?.libraryDLLs?.files == null || modData.libraryDLLs.files.Count == 0)
                     continue;
-                
+
                 var id = kvp.Key;
                 var assemblyList = new List<Assembly> ();
                 assembliesPerMod[id] = assemblyList;
-                    
+
                 foreach (var file in modData.libraryDLLs.files)
                 {
                     var filePath = file.GetFinalPath ();
@@ -852,7 +933,7 @@ namespace PhantomBrigade.SDK.ModTools
                 var tagsPrevious = new HashSet<string> (tagMappings.Keys);
                 bool tagsChanged = false;
                 Debug.Log ($"Scanning for new YAML tags | Mods with assemblies: {assembliesPerMod.Count} | Initial tags: {tagMappings.Count}");
-                
+
                 foreach (var kvp in assembliesPerMod)
                 {
                     string id = kvp.Key;
@@ -862,7 +943,7 @@ namespace PhantomBrigade.SDK.ModTools
                         foreach (var assembly in assemblyList)
                         {
                             UtilitiesYAML.AddTagMappingsHintedInAssembly (assembly);
-                            
+
                             var tagsAfter = new HashSet<string> (tagMappings.Keys);
                             tagsAfter.ExceptWith (tagsPrevious);
                             if (tagsAfter.Count == 0)
@@ -870,14 +951,14 @@ namespace PhantomBrigade.SDK.ModTools
                                 Debug.Log ($"No tag changes found after scanning assembly {assembly.FullName}");
                                 continue;
                             }
-                            
+
                             Debug.Log ($"Loaded tags from {id} assembly {assembly.FullName}\n{tagsAfter.ToStringMultilineDash ()}");
                             tagsPrevious.UnionWith (tagsAfter);
                             tagsChanged = true;
                         }
                     }
                 }
-                
+
                 if (tagsChanged)
                 {
                     Debug.Log ($"Rebuilding YAML serialization...");
