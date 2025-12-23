@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 
 using UnityEngine;
@@ -572,14 +573,14 @@ namespace PhantomBrigade.SDK.ModTools
 
             if (string.IsNullOrEmpty (pathSelected))
             {
-                Debug.Log ($"Can't import files: no import path provided");
+                Debug.Log ("Can't import files: no import path provided");
                 return;
             }
 
             var dirSelected = new DirectoryInfo (pathSelected);
             if (!dirSelected.Exists)
             {
-                Debug.LogWarning ($"Can't import, no folder selected");
+                Debug.LogWarning ("Can't import, no folder selected");
                 return;
             }
 
@@ -590,7 +591,7 @@ namespace PhantomBrigade.SDK.ModTools
 
             if (!dirModConfigs.Exists)
             {
-                Debug.Log ($"Can't import files: mod doesn't contain a Configs folder.\n- {pathModConfigs}");
+                Debug.Log ("Can't import files: mod doesn't contain a Configs folder.\n- " + pathModConfigs);
                 return;
             }
 
@@ -685,6 +686,40 @@ namespace PhantomBrigade.SDK.ModTools
             )
             {
                 ModTextHelper.ApplyTextChangesToConfigs (modData);
+            }
+        }
+
+        public static void CopyConfigsFromZippedMod (DataContainerModData modData, string pathSelected)
+        {
+            if (Path.GetExtension (pathSelected) != ".zip")
+            {
+                return;
+            }
+            var pathSelectedDir = Path.GetDirectoryName (pathSelected);
+            try
+            {
+                var pathZipDir = pathSelectedDir;
+                using (var ar = ZipFile.OpenRead (pathSelected))
+                {
+                    if (ar.Entries.Count == 0)
+                    {
+                        return;
+                    }
+                    var pathZipEntry = Path.GetDirectoryName (ar.Entries.First ().FullName);
+                    while (!string.IsNullOrEmpty (pathZipEntry))
+                    {
+                        pathZipDir = DataPathHelper.GetCombinedCleanPath (pathSelectedDir, pathZipEntry);
+                        pathZipEntry = Path.GetDirectoryName (pathZipEntry);
+                    }
+                }
+                ZipFile.ExtractToDirectory (pathSelected, pathSelectedDir);
+                CopyConfigsFromExportedMod (modData, pathZipDir);
+                Directory.Delete (pathZipDir, true);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError ("Exception thrown when import mod from zip file: " + pathSelected);
+                Debug.LogException (ex);
             }
         }
     }
