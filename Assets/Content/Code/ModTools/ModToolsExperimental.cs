@@ -8,6 +8,7 @@ using UnityEngine;
 
 #if UNITY_EDITOR
 using PhantomBrigade.Data;
+using PhantomBrigade.Mods;
 using PhantomBrigade.ModTools;
 using UnityEditor;
 using Unity.EditorCoroutines.Editor;
@@ -715,10 +716,7 @@ namespace PhantomBrigade.SDK.ModTools
                 );
                 if (ok)
                 {
-                    if (modData.libraryDLLs == null)
-                    {
-                        modData.libraryDLLs = new FileReferences ();
-                    }
+                    modData.libraryDLLs ??= new FileReferences();
                     if (!Directory.Exists (pathSources))
                     {
                         Directory.CreateDirectory (pathSources);
@@ -738,6 +736,30 @@ namespace PhantomBrigade.SDK.ModTools
                     }
                 }
             }
+
+            var pathMetadata = Path.Combine (pathSelected, "metadata.yaml");
+            if (File.Exists (pathMetadata))
+            {
+                var ok = EditorUtility.DisplayDialog
+                (
+                    "Copy metadata properties?",
+                    "Would you like to copy metadata properties such as name, description, version from the imported mod?",
+                    "Copy",
+                    "Skip"
+                );
+                if (ok)
+                {
+                    var metadata = UtilitiesYAML.ReadFromFile<ModMetadata> (pathMetadata);
+                    modData.metadata.colorHue = metadata.colorHue;
+                    modData.metadata.desc = metadata.desc;
+                    modData.metadata.name = metadata.name;
+                    modData.metadata.priority = metadata.priority;
+                    modData.metadata.url = metadata.url;
+                    modData.metadata.ver = metadata.ver;
+                }
+            }
+
+            modData.SyncMetadata ();
         }
 
         public static void CopyConfigsFromZippedMod (DataContainerModData modData, string pathSelected)
