@@ -1,15 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-
 using UnityEngine;
 
 #if UNITY_EDITOR
-using System.Reflection;
 using PhantomBrigade.Data;
 using PhantomBrigade.ModTools;
 using UnityEditor;
@@ -567,7 +564,7 @@ namespace PhantomBrigade.SDK.ModTools
         {
             if (modData == null)
             {
-                Debug.Log ($"Can't import files: mod data is null");
+                Debug.Log ("Can't import files: mod data is null");
                 return;
             }
 
@@ -596,96 +593,125 @@ namespace PhantomBrigade.SDK.ModTools
             }
 
             var pathImportConfigOverrides = Path.Combine (pathSelected, DataContainerModData.overridesFolderName);
-            DirectoryInfo dirImportConfigOverrides = new DirectoryInfo (pathImportConfigOverrides);
-            if (dirImportConfigOverrides.Exists && EditorUtility.DisplayDialog
-            (
-                "Import ConfigOverrides?",
-                $"Discovered the ConfigOverrides folder in the selected import folder. Would you like to copy its contents over the Configs folder in the selected mod (ID {modData.id})? The imported files might overwrite existing files."+
-                $"\n\nFrom folder: \n{pathSelected}/ConfigOverrides" +
-                $"\n\nTo project folder: \n{pathMod}/Configs",
-                "Import ConfigOverrides",
-                "Skip")
-            )
+            var dirImportConfigOverrides = new DirectoryInfo (pathImportConfigOverrides);
+            if (dirImportConfigOverrides.Exists)
             {
-                FileInfo[] filesConfigOverrides = dirImportConfigOverrides.GetFiles ("*", SearchOption.AllDirectories);
-                Debug.Log ($"Copying configs from selected folder ConfigOverrides to mod folder Configs. Potential files: {filesConfigOverrides.Length}\nMod: {pathModConfigs}\nSource: {pathImportConfigOverrides}");
-
-                try
+                var ok = EditorUtility.DisplayDialog
+                (
+                    "Import ConfigOverrides?",
+                    $"Discovered the ConfigOverrides folder in the selected import folder. Would you like to copy its contents over the Configs folder in the selected mod (ID {modData.id})? The imported files might overwrite existing files." +
+                    $"\n\nFrom folder: \n{pathSelected}/ConfigOverrides" +
+                    $"\n\nTo project folder: \n{pathMod}/Configs",
+                    "Import ConfigOverrides",
+                    "Skip"
+                );
+                if (ok)
                 {
-                    foreach (var file in filesConfigOverrides)
+                    var filesConfigOverrides = dirImportConfigOverrides.GetFiles ("*", SearchOption.AllDirectories);
+                    Debug.Log ($"Copying configs from selected folder ConfigOverrides to mod folder Configs. Potential files: {filesConfigOverrides.Length}\nMod: {pathModConfigs}\nSource: {pathImportConfigOverrides}");
+
+                    try
                     {
-                        var pathFull = file.FullName;
-                        var pathLocal = pathFull.Substring (pathImportConfigOverrides.Length + 1);
-                        var pathDest = Path.Combine (pathModConfigs, pathLocal);
+                        foreach (var file in filesConfigOverrides)
+                        {
+                            var pathFull = file.FullName;
+                            var pathLocal = pathFull.Substring (pathImportConfigOverrides.Length + 1);
+                            var pathDest = Path.Combine (pathModConfigs, pathLocal);
 
-                        string pathDirName = Path.GetDirectoryName (pathDest);
-                        if (pathDirName != null)
-                            Directory.CreateDirectory (pathDirName);
+                            string pathDirName = Path.GetDirectoryName (pathDest);
+                            if (pathDirName != null)
+                                Directory.CreateDirectory (pathDirName);
 
-                        file.CopyTo (pathDest, true);
-                        Debug.Log ($"Copied to Configs: {file.Name}\nLocal path: {pathLocal}\nFrom: {pathFull}\nTo: {pathDest}");
+                            file.CopyTo (pathDest, true);
+                            Debug.Log ($"Copied to Configs: {file.Name}\nLocal path: {pathLocal}\nFrom: {pathFull}\nTo: {pathDest}");
+                        }
                     }
-                }
-                catch (Exception e)
-                {
-                    Debug.LogException (e);
+                    catch (Exception e)
+                    {
+                        Debug.LogException (e);
+                    }
                 }
             }
 
             var pathImportConfigEdits = Path.Combine (pathSelected, DataContainerModData.editsFolderName);
-            DirectoryInfo dirImportConfigEdits = new DirectoryInfo (pathImportConfigEdits);
-            if (dirImportConfigEdits.Exists && EditorUtility.DisplayDialog
-            (
-                "Import ConfigEdits?",
-                $"Discovered the ConfigEdits folder in the selected import folder. Would you like to load its contents into the selected mod project (ID {modData.id})? The imported edits might overwrite existing edits."+
-                $"\n\nFrom folder: \n{pathSelected}/ConfigEdits" +
-                $"\n\nTo project metadata: \n(Edits are stored in the project metadata, no per-edit files used until export)",
-                "Import ConfigEdits",
-                "Skip")
-            )
+            var dirImportConfigEdits = new DirectoryInfo (pathImportConfigEdits);
+            if (dirImportConfigEdits.Exists)
             {
-                try
+                var ok = EditorUtility.DisplayDialog
+                (
+                    "Import ConfigEdits?",
+                    $"Discovered the ConfigEdits folder in the selected import folder. Would you like to load its contents into the selected mod project (ID {modData.id})? The imported edits might overwrite existing edits." +
+                    $"\n\nFrom folder: \n{pathSelected}/ConfigEdits" +
+                    "\n\nTo project metadata: \n(Edits are stored in the project metadata, no per-edit files used until export)",
+                    "Import ConfigEdits",
+                    "Skip"
+                );
+                if (ok)
                 {
-                    ModConfigEditSource.LoadFromMod (modData, false, pathImportConfigEdits);
-                }
-                catch (Exception e)
-                {
-                    Debug.LogException (e);
+                    try
+                    {
+                        ModConfigEditSource.LoadFromMod (modData, false, pathImportConfigEdits);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException (e);
+                    }
                 }
             }
 
             var pathImportTextEdits = Path.Combine (pathSelected, DataContainerModData.localizationEditsFolderName);
-            DirectoryInfo dirImportTextEdits = new DirectoryInfo (pathImportTextEdits);
-            if (dirImportTextEdits.Exists && EditorUtility.DisplayDialog
-            (
-                "Import LocalizationEdits?",
-                $"Discovered the LocalizationEdits (text modifications) folder in the selected import folder. Would you like to load its contents into the selected mod project (ID {modData.id})? The imported text edits might overwrite existing text edits."+
-                $"\n\nFrom folder: \n{pathSelected}/LocalizationEdits" +
-                $"\n\nTo project metadata: \n(Edits are stored in the project metadata, no per-edit files used until export)",
-                "Import LocalizationEdits",
-                "Skip")
-            )
+            var dirImportTextEdits = new DirectoryInfo (pathImportTextEdits);
+            if (dirImportTextEdits.Exists)
             {
-                try
+                var ok = EditorUtility.DisplayDialog
+                (
+                    "Import LocalizationEdits?",
+                    $"Discovered the LocalizationEdits (text modifications) folder in the selected import folder. Would you like to load its contents into the selected mod project (ID {modData.id})? The imported text edits might overwrite existing text edits." +
+                    $"\n\nFrom folder: \n{pathSelected}/LocalizationEdits" +
+                    "\n\nTo project metadata: \n(Edits are stored in the project metadata, no per-edit files used until export)",
+                    "Import LocalizationEdits",
+                    "Skip"
+                );
+                if (ok)
                 {
-                    ModConfigLocEdit.LoadFromMod (modData, false, pathImportTextEdits);
+                    try
+                    {
+                        ModConfigLocEdit.LoadFromMod (modData, false, pathImportTextEdits);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException (e);
+                    }
                 }
-                catch (Exception e)
+                if (modData.textEdits?.languages != null && modData.textEdits.languages.Count > 0)
                 {
-                    Debug.LogException (e);
+                    ok = EditorUtility.DisplayDialog
+                    (
+                        "Apply text edits to Configs?",
+                        "The mod has imported text edits. Would you like to apply them directly to Configs so that they show up in data editors?",
+                        "Apply to Configs",
+                        "Skip"
+                    );
+                    if (ok)
+                    {
+                        ModTextHelper.ApplyTextChangesToConfigs (modData);
+                    }
                 }
             }
 
-            bool textEditsPresent = dirImportTextEdits.Exists && modData.textEdits?.languages != null && modData.textEdits.languages.Count > 0;
-            if (EditorUtility.DisplayDialog
-            (
-                "Apply text edits to Configs?",
-                $"The mod has imported text edits. Would you like to apply them directly to Configs so that they show up in data editors?",
-                "Apply to Configs",
-                "Skip")
-            )
+            if (dirImportTextEdits.Exists && modData.textEdits?.languages != null && modData.textEdits.languages.Count > 0)
             {
-                ModTextHelper.ApplyTextChangesToConfigs (modData);
+                var ok = EditorUtility.DisplayDialog
+                (
+                    "Apply text edits to Configs?",
+                    "The mod has imported text edits. Would you like to apply them directly to Configs so that they show up in data editors?",
+                    "Apply to Configs",
+                    "Skip"
+                );
+                if (ok)
+                {
+                    ModTextHelper.ApplyTextChangesToConfigs (modData);
+                }
             }
         }
 
