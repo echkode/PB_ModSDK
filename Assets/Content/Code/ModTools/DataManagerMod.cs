@@ -116,17 +116,11 @@ namespace PhantomBrigade.SDK.ModTools
                     return;
                 }
                 var pathProject = string.IsNullOrEmpty (pathSource) ? folderPathProjectsDefault : pathSource;
-                if (useAlternateDirectory && !string.IsNullOrEmpty (directoryName))
+                var useAlternate = useAlternateDirectory && !string.IsNullOrEmpty (directoryName);
+                pathProject = DataPathHelper.GetCombinedCleanPath(pathProject, useAlternate ? directoryName : id);
+                if ((useAlternate || pathProject != folderPathProjectsDefault) && !Directory.Exists (pathProject))
                 {
-                    pathProject = DataPathHelper.GetCombinedCleanPath (pathProject, directoryName);
-                    if (!Directory.Exists (pathProject))
-                    {
-                        Directory.CreateDirectory (pathProject);
-                    }
-                }
-                else
-                {
-                    pathProject = DataPathHelper.GetCombinedCleanPath (pathProject, id);
+                    Directory.CreateDirectory (pathProject);
                 }
                 var modData = new DataContainerModData ()
                 {
