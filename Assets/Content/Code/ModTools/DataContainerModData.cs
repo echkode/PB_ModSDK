@@ -360,7 +360,7 @@ namespace PhantomBrigade.SDK.ModTools
         public void ExportToUserFolderFinalize ()
         {
             var dirPathUser = GetModPathUser ();
-            TryExportToFolderShared (dirPathUser, "user Mods folder", true);
+            TryExportToFolderShared (dirPathUser, "user Mods folder", false);
         }
 
         public bool TryExportToFolderShared (string dirPathTarget, string targetDesc, bool targetOpen)
@@ -432,7 +432,6 @@ namespace PhantomBrigade.SDK.ModTools
 
                 CopyContents (projectPath, dirPathPkg);
                 ZipFile.CreateFromDirectory (dirPathPkg, zipPath, System.IO.Compression.CompressionLevel.Optimal, true);
-                Application.OpenURL ("file://" + projectPath);
             }
             catch (Exception e)
             {
