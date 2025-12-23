@@ -256,6 +256,7 @@ namespace PhantomBrigade.ModTools
                 EditorPrefs.SetBool ("PB_ModTools_ShowWindowOnStartup", false);
                 EditorApplication.delayCall += () => ShowWindow ();
             }
+            ModToolsHelper.LoadUserDLLTypeHints ();
         }
 
         private static void CallbackOnClose ()

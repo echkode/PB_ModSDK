@@ -122,7 +122,7 @@ namespace PhantomBrigade.SDK.ModTools
             Debug.Log ($"Building asset bundles | Unity version: {Application.unityVersion}:\n- Temp folder:{buildPathTemp}\n- Final folder: {buildPathFinal}");
             ModToolsAssetBundles.BuildAllAssetBundlesFromList (buildPathTemp, modData.assetBundles.bundleDefinitions, buildPathFinal);
         }
-        
+
         public static void GenerateLibraries (DataContainerModData modData)
         {
             if (modData == null)
@@ -156,22 +156,61 @@ namespace PhantomBrigade.SDK.ModTools
             {
                 if (dll == null || string.IsNullOrEmpty (dll.path) || !dll.enabled)
                     continue;
-                
+
                 var pathSource = dll.GetFinalPath ();
                 var fileSource = new FileInfo (pathSource);
-                
+
                 if (!fileSource.Exists)
                 {
                     Debug.Log ($"External library file doesn't exist: {pathSource}");
                     continue;
                 }
-                
+
                 var filename = Path.GetFileName (pathSource);
                 var pathDest = DataPathHelper.GetCombinedCleanPath (pathLibraries, filename);
-                
+
                 File.Copy (pathSource, pathDest, true);
                 Debug.Log ($"Copying external DLL into Libraries...\nFrom: {pathSource}\nTo: {pathDest}");
             }
+        }
+
+        public static void LoadUserDLLTypeHints ()
+        {
+            // !!! Only run this once on Editor startup.
+
+            var tagMappings = UtilitiesYAML.GetTagMappings ();
+            var tagCountCurrent = tagMappings.Count;
+            var currentTags = new HashSet<string> (tagMappings.Keys);
+
+            var sdkDirectory = new DirectoryInfo (DataPathHelper.GetApplicationFolder ());
+            var userDLLDirectory = new DirectoryInfo (DataPathHelper.GetCombinedCleanPath (sdkDirectory.FullName, "Assets\\User"));
+            if (!userDLLDirectory.Exists)
+            {
+                return;
+            }
+            var assemblies = userDLLDirectory.GetFiles ("*.dll")
+                .Select (p => Assembly.LoadFrom (p.FullName))
+                .ToList ();
+            foreach (var assembly in assemblies)
+            {
+                Debug.LogFormat ("Loading type hints for YAML from user DLL | path: {0} | assembly: {1}", assembly.Location, assembly.FullName);
+                UtilitiesYAML.AddTagMappingsHintedInAssembly (assembly);
+                var tags = new HashSet<string> (tagMappings.Keys);
+                tags.ExceptWith (currentTags);
+                if (tags.Count == 0)
+                {
+                    continue;
+                }
+                Debug.LogFormat ("Tags added from type hints\n   {0}", tags.ToStringFormatted (multiline: true, appendBrackets: false, multilinePrefix: "   "));
+                currentTags.UnionWith (tags);
+            }
+
+            if (tagCountCurrent == tagMappings.Count)
+            {
+                return;
+            }
+            UtilitiesYAML.RebuildDeserializer ();
+            UtilitiesYAML.RebuildSerializer ();
         }
     }
 
