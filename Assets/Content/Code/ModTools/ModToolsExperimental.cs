@@ -699,18 +699,43 @@ namespace PhantomBrigade.SDK.ModTools
                 }
             }
 
-            if (dirImportTextEdits.Exists && modData.textEdits?.languages != null && modData.textEdits.languages.Count > 0)
+            var pathImportLibraries = Path.Combine (pathSelected, DataContainerModData.librariesFolderName);
+            var dirImportLibraries = new DirectoryInfo (pathImportLibraries);
+            if (dirImportLibraries.Exists)
             {
+                var pathSources = DataPathHelper.GetCombinedCleanPath (modData.GetModPathProject (), "SourceLibraries");
                 var ok = EditorUtility.DisplayDialog
                 (
-                    "Apply text edits to Configs?",
-                    "The mod has imported text edits. Would you like to apply them directly to Configs so that they show up in data editors?",
-                    "Apply to Configs",
+                    "Import Libraries?",
+                    $"Discovered a Libraries folder in the selected import mod. Would you like to copy any discovered DLLs into the selected mod project (ID {modData.id})? The imported DLLs might overwrite existing ones." +
+                    "\n\nFrom folder: \n" + pathImportLibraries +
+                    "\n\nTo project: \n" + pathSources,
+                    "Import DLLs",
                     "Skip"
                 );
                 if (ok)
                 {
-                    ModTextHelper.ApplyTextChangesToConfigs (modData);
+                    if (modData.libraryDLLs == null)
+                    {
+                        modData.libraryDLLs = new FileReferences ();
+                    }
+                    if (!Directory.Exists (pathSources))
+                    {
+                        Directory.CreateDirectory (pathSources);
+                    }
+                    foreach (var pathLib in dirImportLibraries.EnumerateFiles ("*.dll", SearchOption.AllDirectories))
+                    {
+                        var pathRelative = pathLib.FullName.Substring (dirImportLibraries.FullName.Length + 1);
+                        var pathDest = DataPathHelper.GetCombinedCleanPath (pathSources, pathRelative);
+                        pathLib.CopyTo (pathDest, true);
+                        modData.libraryDLLs.files.Add (new FileReference ()
+                        {
+                            enabled = true,
+                            relative = true,
+                            path = DataPathHelper.GetCombinedCleanPath ("SourceLibraries", pathRelative),
+                            parent = modData,
+                        });
+                    }
                 }
             }
         }
