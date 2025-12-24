@@ -127,7 +127,7 @@ public static class UtilitiesYAML
         var assemblyBuiltin = Assembly.GetAssembly (typeof (TypeHintedAttribute));
         AddTagMappingsHintedInAssembly (assemblyBuiltin);
     }
-    
+
     public static void AddTagMappingsHintedInAssembly (Assembly assembly)
     {
         if (assembly == null)
@@ -682,6 +682,10 @@ public static class UtilitiesYAML
             // If recursive and copying subdirectories, recursively call this method
             foreach (DirectoryInfo subDir in sourceDirChildren)
             {
+                #if PB_MODSDK
+                if (subDir.Name == ".git")
+                    continue;
+                #endif
                 string newDestinationDir = Path.Combine (destPath, subDir.Name);
                 CopyDirectoryInternal (subDir.FullName, newDestinationDir, true, depth + 1);
             }
@@ -920,7 +924,7 @@ public static class UtilitiesYAML
                     string dirPath = dirs[i];
                     if (dirPath.EndsWith (gitFolderName))
                         continue;
-                    
+
                     var key = Path.GetFileName (dirPath);
                     if (forceLowerCase)
                         key = key.ToLowerInvariant ();

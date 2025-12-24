@@ -28,14 +28,14 @@ namespace PhantomBrigade.SDK.ModTools
     {
         #if UNITY_EDITOR
 
-        private static DataManagerMod ins;
-        private static bool initialized = false;
-        private static bool loadedOnce = false;
+        static DataManagerMod ins;
+        static bool initialized;
+        static bool loadedOnce;
 
-        private const string filenameMain = "project";
-        private const string extensionYAML = ".yaml";
+        const string filenameMain = "project";
+        const string extensionYAML = ".yaml";
 
-        private void Update ()
+        void Update ()
         {
             if (!initialized)
             {
@@ -51,16 +51,25 @@ namespace PhantomBrigade.SDK.ModTools
         [HideReferenceObjectPicker]
         public class ModToolsSourcePath
         {
-            [InlineButton ("OpenPath", "→")]
-            [HideLabel, FolderPath (UseBackslashes = false, RequireExistingPath = true, AbsolutePath = true)]
+            [HorizontalGroup (20f)]
+            [PropertySpace (2f)]
+            [OnValueChanged (nameof(Reload))]
+            [HideLabel]
+            public bool enabled = true;
+
+            [HorizontalGroup]
+            [FolderPath (UseBackslashes = false, RequireExistingPath = true, AbsolutePath = true)]
+            [HideLabel]
             public string path;
 
-            private bool IsPathValid () => !string.IsNullOrEmpty(path) && Directory.Exists (path);
-
-            private void OpenPath ()
+            static void Reload ()
             {
-                if (IsPathValid ())
-                    Application.OpenURL ("file://" + path);
+                DataManagerMod.LoadCustomSourceDirectories ();
+                DataManagerMod.LoadAll ();
+                if (DataManagerMod.modSelected != null && !DataManagerMod.mods.ContainsKey (DataManagerMod.modSelected.id))
+                {
+                    DataManagerMod.modSelectedID = "";
+                }
             }
         }
 
@@ -72,20 +81,89 @@ namespace PhantomBrigade.SDK.ModTools
             public List<ModToolsSourcePath> customSourceDirectories = new List<ModToolsSourcePath> ();
         }
 
+        [ShowInInspector]
+        [PropertyOrder (OdinGroup.Order.Title)]
         [Title ("Mod project manager", TitleAlignment = TitleAlignments.Centered)]
-        [ShowInInspector, PropertyOrder (-110)]
         [PropertyTooltip ("The folder where mod projects are stored. If this folder does not exist, it will be created when you add your first mod.")]
         [PropertySpace (0f, 3f)]
         [LabelText ("Default source folder"), LabelWidth (160f), ReadOnly, ElidedPath]
         public static string folderPathProjectsDefault;
 
-        [PropertyOrder (-90)]
-        [ShowInInspector, FoldoutGroup ("Settings"), HideReferenceObjectPicker, HideDuplicateReferenceBox, HideLabel]
-        private static ModToolsSettings settings = null;
+        #region Settings
 
-        private static List<string> folderPathsProjects = new List<string> ();
+        static readonly List<string> folderPathsProjects = new List<string> ();
 
+        static void InitializeSettings ()
+        {
+            var settingsPath = DataPathHelper.GetCombinedCleanPath (DataPathHelper.GetApplicationFolder (), "ConfigsModTools");
+            settings = UtilitiesYAML.LoadDataFromFile<ModToolsSettings> (settingsPath, "user_settings.yaml", false, false);
+            settings ??= new ModToolsSettings
+            {
+                customSourceDirectories = new List<ModToolsSourcePath>()
+            };
+            settings.customSourceDirectories ??= new List<ModToolsSourcePath>();
 
+            folderPathProjectsDefault = DataPathHelper.GetCombinedCleanPath (DataPathHelper.GetUserFolder (), "ModsSource");
+        }
+
+        static void LoadCustomSourceDirectories ()
+        {
+            folderPathsProjects.Clear ();
+            folderPathsProjects.Add (folderPathProjectsDefault);
+
+            foreach (var p in settings.customSourceDirectories)
+            {
+                if (p == null)
+                {
+                    continue;
+                }
+                if (string.IsNullOrEmpty (p.path))
+                {
+                    continue;
+                }
+                if (!p.enabled)
+                {
+                    continue;
+                }
+                if (!Directory.Exists (p.path))
+                {
+                    continue;
+                }
+                folderPathsProjects.Add (p.path);
+            }
+        }
+
+        [FoldoutGroup (OdinGroup.Name.Settings, OdinGroup.Order.Settings)]
+        [HorizontalGroup (OdinGroup.Name.SettingsButtons, Order = OdinGroup.SubOrder.SettingsButtons)]
+        [Button (SdfIconType.ArrowUpCircle, IconAlignment.LeftOfText, ButtonHeight = 32, Name = "Load settings")]
+        static void LoadSettings ()
+        {
+            InitializeSettings ();
+            LoadCustomSourceDirectories ();
+            modSetup.pathSource = folderPathsProjects.FirstOrDefault ();
+        }
+
+        [HorizontalGroup (OdinGroup.Name.SettingsButtons)]
+        [Button (SdfIconType.ArrowDownCircle, IconAlignment.LeftOfText, ButtonHeight = 32, Name = "Save settings")]
+        static void SaveSettings ()
+        {
+            settings ??= new ModToolsSettings
+            {
+                customSourceDirectories = new List<ModToolsSourcePath>()
+            };
+            var settingsPath = DataPathHelper.GetCombinedCleanPath (DataPathHelper.GetApplicationFolder (), "ConfigsModTools");
+            UtilitiesYAML.SaveToFile (settingsPath, "user_settings.yaml", settings);
+        }
+
+        [ShowInInspector]
+        [FoldoutGroup (OdinGroup.Name.Settings)]
+        [PropertyOrder (OdinGroup.SubOrder.SettingsList)]
+        [HideReferenceObjectPicker]
+        [HideDuplicateReferenceBox]
+        [HideLabel]
+        static ModToolsSettings settings;
+
+        #endregion
 
         // Parts providing a way to add a new mod
         // Wrapped in a subclass to separate utility fields like error strings, reduce the need for top level grouping attributes etc.
@@ -117,14 +195,15 @@ namespace PhantomBrigade.SDK.ModTools
                 }
                 var pathProject = string.IsNullOrEmpty (pathSource) ? folderPathProjectsDefault : pathSource;
                 var useAlternate = useAlternateDirectory && !string.IsNullOrEmpty (directoryName);
-                pathProject = DataPathHelper.GetCombinedCleanPath(pathProject, useAlternate ? directoryName : id);
+                var key = useAlternate ? directoryName : id;
+                pathProject = DataPathHelper.GetCombinedCleanPath(pathProject, key);
                 if ((useAlternate || pathProject != folderPathProjectsDefault) && !Directory.Exists (pathProject))
                 {
                     Directory.CreateDirectory (pathProject);
                 }
                 var modData = new DataContainerModData ()
                 {
-                    key = id,
+                    key = key,
                     projectPath = pathProject,
                     metadata = new ModMetadata
                     {
@@ -137,8 +216,9 @@ namespace PhantomBrigade.SDK.ModTools
                 };
 
                 SaveMod (modData);
-                mods.Add (id, modData);
+                mods[id] = modData;
                 modSelectedID = id;
+
                 id = string.Empty;
                 idError = null;
                 idValid = true;
@@ -221,37 +301,30 @@ namespace PhantomBrigade.SDK.ModTools
 
         #endregion
 
-
-
         // Parts backing and displaying the selected mod
         #region ModSelected
 
-        private static readonly SortedDictionary<string, string> modsLoadedPaths = new SortedDictionary<string, string> ();
-        private static readonly SortedDictionary<string, DataContainerModData> mods = new SortedDictionary<string, DataContainerModData> ();
+        static readonly SortedDictionary<string, string> modsLoadedPaths = new SortedDictionary<string, string> ();
+        static readonly SortedDictionary<string, DataContainerModData> mods = new SortedDictionary<string, DataContainerModData> ();
 
-        public static string GetModCountText () => (mods != null ? mods.Count : 0).ToString ();
+        public static string GetModCountText () => (mods?.Count ?? 0).ToString ();
         public static IEnumerable<string> GetModKeys () => mods?.Keys;
         public static bool IsModSelectionVisible () => modSelected != null;
         public static bool IsModSelectionPossible () => SteamWorkshopHelper.IsUtilityOperationAvailable;
         public static string GetModSelectionTitle () => modSelected != null ? "Selected mod" : "No mod selected";
-        public static Color GetSelectedKeyColor ()
-        {
-            if (DataContainerModData.selectedMod != null && DataContainerModData.selectedMod == modSelected)
-                return DataContainerModData.colorSelected;
-            return Color.white;
-        }
+        public static Color GetSelectedKeyColor () => DataContainerModData.selectedMod != null && DataContainerModData.selectedMod == modSelected
+            ? DataContainerModData.colorSelected
+            : Color.white;
 
-        [Title ("Selected mod")]
-        [ShowInInspector, PropertyOrder (21)]
-        [ValueDropdown (nameof (GetModKeys))]
-        [HideLabel, SuffixLabel ("$" + nameof (GetModCountText)), GUIColor (nameof (GetSelectedKeyColor))]
+        [ShowInInspector]
+        [PropertyOrder (OdinGroup.Order.ModSelector)]
         [EnableIf (nameof(IsModSelectionPossible))]
+        [ValueDropdown (nameof (GetModKeys))]
+        [Title ("Selected mod")]
+        [HideLabel, SuffixLabel ("$" + nameof (GetModCountText)), GUIColor (nameof (GetSelectedKeyColor))]
         public static string modSelectedID
         {
-            get
-            {
-                return modSelectedIDInternal;
-            }
+            get => modSelectedIDInternal;
             set
             {
                 // Disable config edits on changes to this key
@@ -261,20 +334,17 @@ namespace PhantomBrigade.SDK.ModTools
             }
         }
 
-        private static string modSelectedIDInternal = null;
+        static string modSelectedIDInternal;
 
-        [ShowInInspector, PropertyOrder (24)]
+        [ShowInInspector]
+        [BoxGroup (OdinGroup.Name.ModSelected, false, false, OdinGroup.Order.ModSelected)]
         [ShowIf (nameof(IsModSelectionVisible))]
-        [BoxGroup ("ModSelected", false)]
         [HideLabel, HideReferenceObjectPicker, HideDuplicateReferenceBox]
         public static DataContainerModData modSelected
         {
-            get
-            {
-                if (!string.IsNullOrEmpty (modSelectedID) && mods != null && mods.TryGetValue (modSelectedID, out var value))
-                    return value;
-                return null;
-            }
+            get => !string.IsNullOrEmpty (modSelectedID) && mods != null && mods.TryGetValue (modSelectedID, out var value)
+                ? value
+                : null;
             set
             {
 
@@ -291,7 +361,7 @@ namespace PhantomBrigade.SDK.ModTools
         [HideReferenceObjectPicker]
         public class ModOptions
         {
-            [HorizontalGroup ("Bt1", 0.3333f)]
+            [HorizontalGroup (OdinGroup.Name.LoadSave, 0.3333f)]
             [Button (SdfIconType.JournalArrowUp, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Reload")]
             public static void LoadProjectSelected ()
             {
@@ -299,7 +369,7 @@ namespace PhantomBrigade.SDK.ModTools
                 LoadProject (id);
             }
 
-            public static void LoadProject (string id)
+            static void LoadProject (string id)
             {
                 if (string.IsNullOrEmpty (id))
                 {
@@ -330,17 +400,15 @@ namespace PhantomBrigade.SDK.ModTools
                 if (mods.ContainsKey (id))
                 {
                     Debug.Log ($"Reloaded project {id} | Full path: {filePath}");
-                    mods[id] = modData;
                 }
                 else
                 {
                     Debug.Log ($"Loaded new project {id} | Full path: {filePath}");
-                    mods.Add (id, modData);
                 }
+                mods[id] = modData;
             }
 
-
-            [HorizontalGroup ("Bt1", 0.3333f)]
+            [HorizontalGroup (OdinGroup.Name.LoadSave, 0.3333f)]
             [Button (SdfIconType.JournalArrowDown, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Save")]
             public static void SaveProjectSelected ()
             {
@@ -352,7 +420,7 @@ namespace PhantomBrigade.SDK.ModTools
             {
                 if (modData == null)
                 {
-                    Debug.LogWarning ($"Can't save project: nothing selected");
+                    Debug.LogWarning ("Can't save project: nothing selected");
                     return;
                 }
 
@@ -367,9 +435,13 @@ namespace PhantomBrigade.SDK.ModTools
                 if (!ModToolsHelper.ValidateModID (id, modData, mods, out var idError))
                 {
                     if (string.IsNullOrEmpty (idError))
+                    {
                         Debug.LogWarning ($"Can't save project: invalid ID \"{id}\"");
+                    }
                     else
+                    {
                         Debug.LogWarning ($"Can't save project: \"{id}\" {idError}");
+                    }
                     return;
                 }
 
@@ -399,8 +471,7 @@ namespace PhantomBrigade.SDK.ModTools
                 UtilitiesYAML.SaveToFile (filePath, modData);
             }
 
-
-            [HorizontalGroup ("Bt1")]
+            [HorizontalGroup (OdinGroup.Name.LoadSave)]
             [Button (SdfIconType.JournalX, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Delete")]
             [PropertySpace (0f, 3f)]
             public static void DeleteProjectSelected ()
@@ -409,11 +480,11 @@ namespace PhantomBrigade.SDK.ModTools
                 DeleteProject (modData);
             }
 
-            public static void DeleteProject (DataContainerModData modData)
+            static void DeleteProject (DataContainerModData modData)
             {
                 if (modData == null)
                 {
-                    Debug.LogWarning ($"Can't delete project: nothing selected | Selected ID: {modSelectedID}");
+                    Debug.LogWarning ("Can't delete project: nothing selected | Selected ID: " + modSelectedID);
                     return;
                 }
 
@@ -424,6 +495,18 @@ namespace PhantomBrigade.SDK.ModTools
                     return;
                 }
 
+                var pathGit = DataPathHelper.GetCombinedCleanPath (projectPath, ".git");
+                if (Directory.Exists (pathGit))
+                {
+                    var textWarning = "This project appears to be a git repo. Are you sure you want to permanently delete it?";
+                    textWarning += "\n\nMod ID: " + modData.id;
+                    textWarning += "\nProject folder: " + projectPath;
+                    if (!EditorUtility.DisplayDialog ("Delete Mod Project", textWarning, "Confirm", "Cancel"))
+                    {
+                        return;
+                    }
+                }
+
                 var id = modData.key;
                 var text = $"Are you sure you'd like to delete this mod project (ID {modData.id}) in its entirety? This operation can not be reverted.";
 
@@ -432,30 +515,33 @@ namespace PhantomBrigade.SDK.ModTools
 
                 var configPath = modData.GetModPathConfigs ();
                 if (Directory.Exists (configPath))
+                {
                     text += "\n- Includes the Configs folder storing any changes made to game databases.";
-
+                }
                 if (!EditorUtility.DisplayDialog ("Delete Mod Project", text, "Confirm", "Cancel"))
+                {
                     return;
+                }
 
                 EditorCoroutineUtility.StartCoroutineOwnerless (DeleteProjectFolderIE (projectPath));
 
                 mods.Remove (id);
-                modSelectedID = string.Empty;
+                modSelectedID = "";
             }
 
             [ShowInInspector]
-            [PropertyOrder (-1)]
-            [FoldoutGroup ("Rename", false), HorizontalGroup ("Rename/H")]
+            [FoldoutGroup (OdinGroup.Name.Rename, false, Order = OdinGroup.Order.Rename)]
+            [HorizontalGroup (OdinGroup.Name.RenameButtons)]
             [InfoBoxBottom ("@" + nameof(idError), InfoMessageType.Error, VisibleIf = nameof(isIDErrorVisible), OverlayColor = "#FFCCCC")]
             [OnValueChanged (nameof(OnIDChange))]
             [HideLabel, SuffixLabel ("New ID", true)]
             public static string idNew;
 
-            private bool idValid;
-            private string idError;
-            private bool isIDErrorVisible => !idValid && !string.IsNullOrEmpty (idError);
+            bool idValid;
+            string idError;
+            bool isIDErrorVisible => !idValid && !string.IsNullOrEmpty (idError);
 
-            private void OnIDChange ()
+            void OnIDChange ()
             {
                 if (!string.IsNullOrEmpty (idNew) && idNew == modSelectedID)
                 {
@@ -466,102 +552,118 @@ namespace PhantomBrigade.SDK.ModTools
                     idValid = ModToolsHelper.ValidateModID (idNew, modSelected, mods, out idError);
             }
 
-            [PropertyOrder (-1)]
-            [FoldoutGroup ("Rename"), HorizontalGroup ("Rename/H", 80f)]
+            [HorizontalGroup (OdinGroup.Name.RenameButtons, 80f)]
             [EnableIf (nameof (idValid))]
             [Button ("Rename", 21)]
             public static void RenameConfigSelected ()
             {
-                RenameConfigSelected (idNew);
-            }
-
-            public static void RenameConfigSelected (string idNew)
-            {
                 var modData = modSelected;
                 if (modData == null)
                 {
-                    Debug.LogWarning ($"Can't rename project: nothing selected");
+                    Debug.LogWarning ("Can't rename project: nothing selected");
                     return;
                 }
-
-                if (string.Equals (idNew, modData.id))
+                if (idNew == modData.id)
                 {
-                    Debug.LogWarning ($"Can't rename project: no new name provided");
+                    Debug.LogWarning ("Can't rename project: no new name provided");
                     return;
                 }
-
                 if (!ModToolsHelper.ValidateModID (idNew, modData, mods, out var idError))
                 {
                     if (string.IsNullOrEmpty (idError))
+                    {
                         Debug.LogWarning ($"Can't rename project: invalid ID \"{idNew}\"");
+                    }
                     else
+                    {
                         Debug.LogWarning ($"Can't rename project: \"{idNew}\" {idError}");
+                    }
                     return;
                 }
 
-                var idOld = modData.key;
-                var sourcePath = DataPathHelper.GetCombinedCleanPath (folderPathProjectsDefault, idOld);
-
-                if (Directory.Exists (sourcePath))
+                var idOld = modData.id;
+                if (modData.id == modData.key)
                 {
-                    var targetPath = DataPathHelper.GetCombinedCleanPath (folderPathProjectsDefault, idNew);
-                    if (Directory.Exists (targetPath))
+                    var (moved, pathNew) = MoveProject (modData, idNew);
+                    if (!moved)
                     {
-                        Debug.LogWarning ($"Can't rename project from \"{idOld}\" to \"{idNew}\": directory with the same name discovered on disk | Full path: {sourcePath}");
                         return;
                     }
-
-                    try
-                    {
-                        Debug.Log ($"Trying to move folder:\n- Source: {sourcePath}\n- Target: {targetPath}");
-                        Directory.Move (sourcePath, targetPath);
-                    }
-                    catch (IOException ioe)
-                    {
-                        Debug.LogError ("Key not changed -- error while renaming mod project directory: " + ioe.Message);
-                        return;
-                    }
+                    modsLoadedPaths.Remove (idOld);
+                    modsLoadedPaths[idNew] = pathNew;
+                    modData.key = idNew;
+                }
+                else
+                {
+                    modsLoadedPaths[idNew] = modsLoadedPaths[idOld];
+                    modsLoadedPaths.Remove (idOld);
                 }
 
                 mods.Remove (idOld);
-                mods.Add (idNew, modData);
-                modData.key = idNew;
+                modData.metadata.id = idNew;
+                mods[idNew] = modData;
                 modSelectedID = idNew;
 
                 SaveProject (modData);
                 LoadProject (modData.id);
             }
 
-            [PropertyOrder (-1)]
-            [FoldoutGroup ("Rename"), HorizontalGroup ("Rename/H", 80f)]
+            static (bool, string) MoveProject (DataContainerModData modData, string keyNew)
+            {
+                var keyOld = modData.key;
+                var pathSource = modData.GetModPathProject ();
+
+                if (!Directory.Exists (pathSource))
+                {
+                    return (false, "");
+                }
+                var pathTarget = DataPathHelper.GetCombinedCleanPath (Path.GetDirectoryName (pathSource), keyNew);
+                if (Directory.Exists (pathTarget))
+                {
+                    Debug.LogWarning ($"Can't move project from \"{keyOld}\" to \"{keyNew}\": directory with the same name discovered on disk | Full path: {pathSource}");
+                    return (false, "");
+                }
+
+                try
+                {
+                    Debug.Log ($"Trying to move folder:\n- Source: {pathSource}\n- Target: {pathTarget}");
+                    Directory.Move (pathSource, pathTarget);
+                    return (true, pathTarget);
+                }
+                catch (IOException ioe)
+                {
+                    Debug.LogError ("Key not changed -- error while renaming mod project directory: " + ioe.Message);
+                }
+                return (false, "");
+            }
+
+            [HorizontalGroup (OdinGroup.Name.RenameButtons, 80f)]
             [EnableIf (nameof(idValid))]
             [Button ("Duplicate", 21)]
             public static void DuplicateConfigSelected ()
             {
-                DuplicateConfigSelected (idNew);
-            }
-
-            public static void DuplicateConfigSelected (string idNew)
-            {
                 var modData = modSelected;
                 if (modData == null)
                 {
-                    Debug.LogWarning ($"Can't duplicate project: nothing selected");
+                    Debug.LogWarning ("Can't duplicate project: nothing selected");
                     return;
                 }
-
                 if (!ModToolsHelper.ValidateModID (idNew, modData, mods, out var idError))
                 {
                     if (string.IsNullOrEmpty (idError))
+                    {
                         Debug.LogWarning ($"Can't duplicate project: invalid ID \"{idNew}\"");
+                    }
                     else
+                    {
                         Debug.LogWarning ($"Can't duplicate project: \"{idNew}\" {idError}");
+                    }
                     return;
                 }
 
                 var idOld = modData.key;
-                var sourcePath = DataPathHelper.GetCombinedCleanPath (folderPathProjectsDefault, idOld);
-                var targetPath = DataPathHelper.GetCombinedCleanPath (folderPathProjectsDefault, idNew);
+                var sourcePath = modData.GetModPathProject ();
+                var targetPath = DataPathHelper.GetCombinedCleanPath (Path.GetDirectoryName (sourcePath), idNew);
 
                 if (!Directory.Exists (sourcePath))
                 {
@@ -580,102 +682,157 @@ namespace PhantomBrigade.SDK.ModTools
                 var modDataCopy = UtilitiesYAML.CloneThroughYaml (modData);
                 modDataCopy.key = idNew;
                 modDataCopy.metadata = UtilitiesYAML.CloneThroughYaml (modData.metadata);
+                modDataCopy.metadata.id = idNew;
                 modDataCopy.SyncMetadata ();
 
                 if (modDataCopy.workshop != null)
-                    modDataCopy.workshop.publishedID = string.Empty;
-
-                mods.Add (idNew, modDataCopy);
+                {
+                    modDataCopy.workshop.publishedID = "";
+                }
+                mods[idNew] = modDataCopy;
+                modsLoadedPaths[idNew] = targetPath;
                 modSelectedID = idNew;
 
                 SaveProject (modDataCopy);
                 LoadProject (modDataCopy.id);
             }
 
-            [GUIColor ("@ModToolsColors." + nameof (ModToolsColors.HighlightNeonBlue))]
+            [ShowInInspector]
+            [HorizontalGroup (OdinGroup.Name.RenameMove)]
+            [InfoBoxBottom ("@" + nameof(dirNameError), InfoMessageType.Error, VisibleIf = nameof(isDirNameErrorVisible), OverlayColor = "#FFCCCC")]
+            [OnValueChanged (nameof(OnDirectoryNameChange))]
+            [HideLabel, SuffixLabel ("New Folder", true)]
+            public static string directoryNameNew;
+
+            bool dirNameValid;
+            string dirNameError;
+            bool isDirNameErrorVisible => !dirNameValid && !string.IsNullOrEmpty (dirNameError);
+
+            void OnDirectoryNameChange ()
+            {
+                dirNameValid = ModToolsHelper.ValidateModID (directoryNameNew, modSelected, mods, out var error);
+                if (error.StartsWith ("Mod ID"))
+                {
+                    error = "Directory name " + error.Substring("Mod ID".Length);
+                }
+                dirNameError = error;
+            }
+
+            [HorizontalGroup (OdinGroup.Name.RenameMove, 80f)]
+            [EnableIf (nameof(dirNameValid))]
+            [Button ("Move", 21)]
+            public static void MoveConfigSelected ()
+            {
+                var modData = modSelected;
+                if (modData == null)
+                {
+                    Debug.LogWarning ("Can't move project: nothing selected");
+                    return;
+                }
+                if (directoryNameNew == modData.key)
+                {
+                    Debug.LogWarning ("Can't move project: no new name provided");
+                    return;
+                }
+                var (ok, pathNew) = MoveProject (modSelected, directoryNameNew);
+                if (!ok)
+                {
+                    return;
+                }
+                modsLoadedPaths.Remove (modData.id);
+                modsLoadedPaths[modData.id] = pathNew;
+                modData.key = directoryNameNew;
+                modData.projectPath = pathNew;
+            }
+
+            [HorizontalGroup (OdinGroup.Name.EditingExport, 0.3333f)]
             [ShowIf (nameof(IsConfigSetupAllowed))]
-            [HorizontalGroup ("Bt2", 0.3333f)]
-            [Button (SdfIconType.Intersect, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Setup config editing")]
+            [GUIColor ("@ModToolsColors." + nameof (ModToolsColors.HighlightNeonBlue))]
             [PropertyTooltip ("Copy config databases from SDK to project folder. Do this if you want to create config overrides or edit levels.")]
+            [Button (SdfIconType.Intersect, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Setup config editing")]
             public static void SetupConfigs ()
             {
                 var modData = modSelected;
-                if (modData != null)
-                    modData.EnableConfigs ();
+                modData?.EnableConfigs ();
             }
 
-            [GUIColor ("@ModToolsColors." + nameof (ModToolsColors.HighlightNeonGreen))]
+            [HorizontalGroup (OdinGroup.Name.EditingExport, 0.3333f)]
             [ShowIf (nameof(IsConfigEntryAllowed))]
-            [HorizontalGroup ("Bt2", 0.3333f)]
-            [Button (SdfIconType.FileEarmarkTextFill, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Enter config editing")]
+            [GUIColor ("@ModToolsColors." + nameof (ModToolsColors.HighlightNeonGreen))]
             [PropertyTooltip ("Switches all databases to config files copied into your mod project folder, enabling config editing")]
+            [Button (SdfIconType.FileEarmarkTextFill, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Enter config editing")]
             public static void SelectForEditing ()
             {
                 var modData = modSelected;
-                if (modData != null)
+                if (modData == null)
                 {
-                    modData.RefreshConfigsVersion ();
-                    DataContainerModData.selectedMod = modSelected;
-                    InitializeExternalAssemblies ();
-                    ResetArea ();
-                    ResetDBs ();
+                    return;
                 }
+                modData.RefreshConfigsVersion ();
+                DataContainerModData.selectedMod = modSelected;
+                InitializeExternalAssemblies ();
+                ResetArea ();
+                ResetDBs ();
             }
 
-            [GUIColor ("@ModToolsColors." + nameof (ModToolsColors.HighlightSelectedMod))]
+            [HorizontalGroup (OdinGroup.Name.EditingExport, 0.3333f)]
             [ShowIf (nameof(IsConfigExitAllowed))]
-            [HorizontalGroup ("Bt2", 0.3333f)]
-            [Button (SdfIconType.FileX, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Exit config editing")]
+            [GUIColor ("@ModToolsColors." + nameof(ModToolsColors.HighlightSelectedMod))]
             [PropertyTooltip ("Disables database editing, switching the editor back to reading backed up canonical Configs from the SDK folder.")]
+            [Button (SdfIconType.FileX, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Exit config editing")]
             public static void DeselectForEditing ()
             {
                 var modData = modSelected;
-                if (modData != null)
+                if (modData == null)
                 {
-                    modData.RefreshConfigsVersion ();
-                    DataContainerModData.selectedMod = null;
-                    CheckLoadedExternalAssemblies ();
-                    ResetArea ();
-                    ResetDBs ();
+                    return;
                 }
+                modData.RefreshConfigsVersion ();
+                DataContainerModData.selectedMod = null;
+                CheckLoadedExternalAssemblies ();
+                ResetArea ();
+                ResetDBs ();
             }
 
-            private static bool IsConfigSetupAllowed () => modSelected != null &&
-                                                           modSelected.hasProjectFolder &&
-                                                           !Directory.Exists (modSelected.GetModPathConfigs ());
+            static bool IsConfigSetupAllowed () => modSelected != null
+               && modSelected.hasProjectFolder
+               && !Directory.Exists (modSelected.GetModPathConfigs ());
             public static bool IsConfigExitAllowed () => DataContainerModData.selectedMod != null;
-            public static bool IsConfigEntryAllowed () => DataContainerModData.selectedMod == null &&
-                                                          modSelected != null &&
-                                                          modSelected.hasProjectFolder &&
-                                                          Directory.Exists (modSelected.GetModPathConfigs ());
+            public static bool IsConfigEntryAllowed () => DataContainerModData.selectedMod == null
+                && modSelected != null
+                && modSelected.hasProjectFolder
+                && Directory.Exists (modSelected.GetModPathConfigs ());
 
-            // [GUIColor ("@ModToolsColors." + nameof (ModToolsColors.HighlightNeonRed))]
-            [HorizontalGroup ("Bt2", 0.3333f)]
-            [Button (SdfIconType.Boxes, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Export to user")]
+            [HorizontalGroup (OdinGroup.Name.EditingExport, 0.3333f)]
             [PropertyTooltip ("Export the mod into the user folder, allowing you to test it the next time you start the game.\n\nBefore the export, the original data will be compared to the data in the mod project folder: only the modified files will be exported. Make sure to check the appropriate metadata fields.")]
+            [Button (SdfIconType.Boxes, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Export to user")]
             public static void ExportToUserFolder ()
             {
                 var modData = modSelected;
                 if (modData != null)
+                {
                     ModToolsExperimental.GenerateModFiles (modSelected, modData.ExportToUserFolderFinalize);
+                }
             }
 
-            // [GUIColor ("@ModToolsColors." + nameof (ModToolsColors.HighlightNeonRed))]
-            [HorizontalGroup ("Bt2")]
-            [Button (SdfIconType.BoxSeam, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Export to archive")]
+            [HorizontalGroup (OdinGroup.Name.EditingExport)]
+            [PropertySpace (0f, 3f)]
             [PropertyTooltip ("Package the mod into a .zip file, allowing you to share it with other players.\n\nBefore the export, the original data will be compared to the data in the mod project folder: only the modified files will be exported. Make sure to check the appropriate metadata fields.")]
+            [Button (SdfIconType.BoxSeam, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Export to archive")]
             public static void ExportToArchive ()
             {
                 var modData = modSelected;
                 if (modData != null)
+                {
                     ModToolsExperimental.GenerateModFiles (modSelected, modData.ExportToArchiveFinalize);
+                }
             }
 
             [FoldoutGroup(OdinGroup.Name.Utilities)]
             [HorizontalGroup (OdinGroup.Name.UtilityButtons)]
             [EnableIf (nameof(IsConfigEntryAllowed))]
-            [Button (SdfIconType.FileEarmarkBreakFill, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Reset all configs")]
             [PropertyTooltip ("Replace the Configs folder with the original files from the SDK. Equivalent to setting up config editing for the first time.")]
+            [Button (SdfIconType.FileEarmarkBreakFill, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Reset all configs")]
             public static void ResetConfigs ()
             {
                 var modData = modSelected;
@@ -699,8 +856,8 @@ namespace PhantomBrigade.SDK.ModTools
             }
 
             [HorizontalGroup (OdinGroup.Name.UtilityButtons)]
-            [Button (SdfIconType.Box, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Export to source")]
             [PropertyTooltip ("Export the mod files into the mod project folder without taking any additional step (no export to user folder, archive or Workshop).")]
+            [Button (SdfIconType.Box, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Export to source")]
             public static void ExportSimple ()
             {
                 var modData = modSelected;
@@ -709,8 +866,8 @@ namespace PhantomBrigade.SDK.ModTools
             }
 
             [HorizontalGroup (OdinGroup.Name.UtilityButtons)]
-            [Button (SdfIconType.Files, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Import from mod")]
             [PropertyTooltip ("Import files from an exported mod into this mod project. An inverse of the standard export operations.")]
+            [Button (SdfIconType.Files, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Import from mod")]
             public static void ImportFromFolder ()
             {
                 var modData = modSelected;
@@ -723,8 +880,8 @@ namespace PhantomBrigade.SDK.ModTools
             }
 
             [HorizontalGroup (OdinGroup.Name.UtilityButtons)]
-            [Button (SdfIconType.Files, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Import from zip")]
             [PropertyTooltip ("Import files from an exported mod into this mod project. An inverse of the standard export operations.")]
+            [Button (SdfIconType.Files, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Import from zip")]
             public static void ImportFromZipFile ()
             {
                 var modData = modSelected;
@@ -740,7 +897,8 @@ namespace PhantomBrigade.SDK.ModTools
             public void OnSelectionChange ()
             {
                 // Reset inputs
-                idNew = modSelected != null ? modSelected.id : string.Empty;
+                idNew = modSelected != null ? modSelected.id : "";
+                directoryNameNew = modSelected != null ? modSelected.key : "";
                 OnIDChange ();
             }
 
@@ -748,8 +906,18 @@ namespace PhantomBrigade.SDK.ModTools
             {
                 public static class Name
                 {
+                    public const string EditingExport = nameof(EditingExport);
+                    public const string LoadSave = nameof(LoadSave);
+                    public const string Rename = nameof(Rename);
+                    public const string RenameButtons = Rename + "/Buttons";
+                    public const string RenameMove = Rename + "/Move";
                     public const string Utilities = nameof(Utilities);
                     public const string UtilityButtons = Utilities + "/Buttons";
+                }
+
+                public static class Order
+                {
+                    public const float Rename = -1f;
                 }
             }
         }
@@ -762,78 +930,14 @@ namespace PhantomBrigade.SDK.ModTools
 
         #endregion
 
-        [PropertyOrder (-100)]
-        [FoldoutGroup("Settings"), HorizontalGroup ("Settings/Bg")]
-        [Button (SdfIconType.ArrowUpCircle, IconAlignment.LeftOfText, ButtonHeight = 32, Name = "Load settings")]
-        private static void LoadSettings ()
-        {
-            folderPathProjectsDefault = DataPathHelper.GetCombinedCleanPath (DataPathHelper.GetUserFolder (), "ModsSource");
-
-            folderPathsProjects.Clear ();
-            folderPathsProjects.Add (folderPathProjectsDefault);
-
-            var settingsPath = $"{DataPathHelper.GetApplicationFolder ()}ConfigsModTools/";
-            settings = UtilitiesYAML.LoadDataFromFile<ModToolsSettings> (settingsPath, "user_settings.yaml", false, false);
-
-            if (settings != null)
-            {
-                if (settings.customSourceDirectories == null)
-                    settings.customSourceDirectories = new List<ModToolsSourcePath> ();
-            }
-
-            if (settings == null)
-            {
-                settings = new ModToolsSettings
-                {
-                    customSourceDirectories = new List<ModToolsSourcePath> ()
-                };
-            }
-
-            if (settings.customSourceDirectories != null && settings.customSourceDirectories.Count > 0)
-            {
-                foreach (var p in settings.customSourceDirectories)
-                {
-                    if (p == null || string.IsNullOrEmpty (p.path))
-                        continue;
-
-                    if (!Directory.Exists (p.path))
-                        continue;
-
-                    folderPathsProjects.Add (p.path);
-                }
-            }
-
-            modSetup.pathSource = folderPathsProjects.FirstOrDefault ();
-        }
-
-        [PropertyOrder (-100)]
-        [FoldoutGroup("Settings"), HorizontalGroup ("Settings/Bg")]
-        [Button (SdfIconType.ArrowDownCircle, IconAlignment.LeftOfText, ButtonHeight = 32, Name = "Save settings")]
-        private static void SaveSettings ()
-        {
-            if (settings == null)
-            {
-                settings = new ModToolsSettings
-                {
-                    customSourceDirectories = new List<ModToolsSourcePath> ()
-                };
-            }
-
-            var settingsPath = $"{DataPathHelper.GetApplicationFolder ()}ConfigsModTools/";
-            UtilitiesYAML.SaveToFile (settingsPath, "user_settings.yaml", settings);
-        }
-
-        private static bool warnAboutInvalidFolders = false;
-
-        [PropertyOrder (-100)]
-        [HorizontalGroup ("BgGlobal")]
+        [HorizontalGroup (OdinGroup.Name.LoadSaveAll, Order = OdinGroup.Order.LoadSaveAll)]
         [Button (SdfIconType.JournalArrowUp, IconAlignment.LeftOfText, ButtonHeight = 32, Name = "Load all")]
-        private static void LoadAll ()
+        static void LoadAll ()
         {
             if (settings == null)
+            {
                 LoadSettings ();
-
-            bool firstLoad = !loadedOnce;
+            }
             loadedOnce = true;
 
             mods.Clear ();
@@ -853,52 +957,43 @@ namespace PhantomBrigade.SDK.ModTools
 
                 foreach (var kvp in modsLoaded)
                 {
-                    var id = kvp.Key;
-                    bool valid = ModToolsHelper.ValidateModID (id, null, null, out var errorDesc);
+                    var mod = kvp.Value;
+                    var projectPath = DataPathHelper.GetCombinedCleanPath (path, kvp.Key);
+                    mod.projectPath = projectPath;
+                    mod.OnAfterDeserialization (kvp.Key);
+
+                    var id = mod.id;
+                    var valid = ModToolsHelper.ValidateModID (id, null, null, out var errorDesc);
                     if (!valid)
                     {
-                        if (warnAboutInvalidFolders)
-                            Debug.LogWarning ($"Mod {id} at path {path} couldn't be loaded due to invalid folder name (ID): {errorDesc}");
+                        Debug.LogWarning ($"Mod {id} at path {path} couldn't be loaded due to invalid name (ID): {errorDesc}");
                         continue;
                     }
-
-                    var mod = kvp.Value;
-
                     if (mods.ContainsKey (id))
                     {
                         Debug.LogWarning ($"Mod {id} at path {path} hides existing mod from another path. Consider changing ID of one of the mods...");
                         continue;
                     }
 
-                    var projectPath = $"{path}/{id}";
-                    mod.projectPath = projectPath;
                     mods[id] = mod;
                     modsLoadedPaths[id] = projectPath;
                 }
             }
 
-            Debug.Log ($"Loaded {mods.Count} mod projects");
-            foreach (var kvp in mods)
-            {
-                var id = kvp.Key;
-                var mod = kvp.Value;
-                mod.OnAfterDeserialization (id);
-            }
-
-            // Debug.LogWarning ($"Discovered project files: {modsLoaded.ToStringFormattedKeyValuePairs (true, toStringOverride: (x) => $"ID: {x.id} / Key: {x.key}")}");
+            Debug.Log ("Loaded mod projects: " + mods.Count);
         }
 
-        private static Dictionary<string, List<Assembly>> assembliesPerMod = new Dictionary<string, List<Assembly>> ();
-        private static int assembliesExternalLoaded = 0;
-        private static bool assembliesExternalInitialized = false;
-        private static bool assembliesExternalWarned = false;
+        static readonly Dictionary<string, List<Assembly>> assembliesPerMod = new Dictionary<string, List<Assembly>> ();
+        static int assembliesExternalLoaded;
+        static bool assembliesExternalInitialized;
+        static bool assembliesExternalWarned;
 
         public static void CheckLoadedExternalAssemblies ()
         {
             if (assembliesExternalInitialized && assembliesExternalLoaded > 0 && !assembliesExternalWarned)
             {
                 assembliesExternalWarned = false;
-                Debug.LogWarning ($"Warning! All external assemblies remain loaded and can't be unloaded for now. Recompile the project or restart it if you need to unlock external .dlls");
+                Debug.LogWarning ("Warning! All external assemblies remain loaded and can't be unloaded for now. Recompile the project or restart it if you need to unlock external .dlls");
             }
         }
 
@@ -976,27 +1071,29 @@ namespace PhantomBrigade.SDK.ModTools
 
                 if (tagsChanged)
                 {
-                    Debug.Log ($"Rebuilding YAML serialization...");
+                    Debug.Log ("Rebuilding YAML serialization...");
                     UtilitiesYAML.RebuildDeserializer ();
                     UtilitiesYAML.RebuildSerializer ();
                 }
             }
         }
 
-        [PropertyOrder (-100)]
-        [HorizontalGroup ("BgGlobal")]
-        [Button (SdfIconType.JournalArrowDown, IconAlignment.LeftOfText, ButtonHeight = 32, Name = "Save all")]
+        [HorizontalGroup (OdinGroup.Name.LoadSaveAll, Order = OdinGroup.Order.LoadSaveAll)]
         [PropertySpace (0f, 3f)]
-        private static void SaveAll ()
+        [Button (SdfIconType.JournalArrowDown, IconAlignment.LeftOfText, ButtonHeight = 32, Name = "Save all")]
+        static void SaveAll ()
         {
             if (mods == null)
+            {
                 return;
-
+            }
             foreach (var kvp in mods)
             {
                 var modData = kvp.Value;
                 if (modData != null)
+                {
                     SaveMod (modData);
+                }
             }
         }
 
@@ -1091,6 +1188,31 @@ namespace PhantomBrigade.SDK.ModTools
             .Where (md => md.hasProjectFolder && Directory.Exists (md.GetModPathConfigs ()))
             .ToList ();
 
+        static class OdinGroup
+        {
+            public static class Name
+            {
+                public const string LoadSaveAll = nameof(LoadSaveAll);
+                public const string ModSelected = nameof(ModSelected);
+                public const string Settings = nameof(Settings);
+                public const string SettingsButtons = Settings + "/Buttons";
+            }
+
+            public static class Order
+            {
+                public const float Title = -100f;
+                public const float Settings = -90f;
+                public const float LoadSaveAll = -89f;
+                public const float ModSelector = 21;
+                public const float ModSelected = 24;
+            }
+
+            public static class SubOrder
+            {
+                public const float SettingsButtons = 0f;
+                public const float SettingsList = 1f;
+            }
+        }
         #endif
     }
 }
