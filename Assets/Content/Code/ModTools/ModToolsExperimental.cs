@@ -528,13 +528,12 @@ namespace PhantomBrigade.SDK.ModTools
         {
             if (modData == null)
             {
-                Debug.Log ($"Can't generate mod config overrides: mod data is null");
+                Debug.Log ("Can't generate mod config overrides: mod data is null");
                 return;
             }
 
             var pathSDK = DataPathHelper.GetApplicationFolder ();
             var pathSDKConfigs = DataPathHelper.GetCombinedCleanPath (pathSDK, "Configs");
-            DirectoryInfo dirSDKConfigs = new DirectoryInfo (pathSDKConfigs);
 
             var pathMod = modData.GetModPathProject ();
             var pathModConfigs = DataPathHelper.GetCombinedCleanPath (pathMod, "Configs");
@@ -660,45 +659,7 @@ namespace PhantomBrigade.SDK.ModTools
                 }
             }
 
-            var pathImportTextEdits = Path.Combine (pathSelected, DataContainerModData.localizationEditsFolderName);
-            var dirImportTextEdits = new DirectoryInfo (pathImportTextEdits);
-            if (dirImportTextEdits.Exists)
-            {
-                var ok = EditorUtility.DisplayDialog
-                (
-                    "Import LocalizationEdits?",
-                    $"Discovered the LocalizationEdits (text modifications) folder in the selected import folder. Would you like to load its contents into the selected mod project (ID {modData.id})? The imported text edits might overwrite existing text edits." +
-                    $"\n\nFrom folder: \n{pathSelected}/LocalizationEdits" +
-                    "\n\nTo project metadata: \n(Edits are stored in the project metadata, no per-edit files used until export)",
-                    "Import LocalizationEdits",
-                    "Skip"
-                );
-                if (ok)
-                {
-                    try
-                    {
-                        ModConfigLocEdit.LoadFromMod (modData, false, pathImportTextEdits);
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogException (e);
-                    }
-                }
-                if (modData.textEdits?.languages != null && modData.textEdits.languages.Count > 0)
-                {
-                    ok = EditorUtility.DisplayDialog
-                    (
-                        "Apply text edits to Configs?",
-                        "The mod has imported text edits. Would you like to apply them directly to Configs so that they show up in data editors?",
-                        "Apply to Configs",
-                        "Skip"
-                    );
-                    if (ok)
-                    {
-                        ModTextHelper.ApplyTextChangesToConfigs (modData);
-                    }
-                }
-            }
+            ImportLocalizationEdits (modData, pathSelected);
 
             var pathImportLibraries = Path.Combine (pathSelected, DataContainerModData.librariesFolderName);
             var dirImportLibraries = new DirectoryInfo (pathImportLibraries);
@@ -760,6 +721,49 @@ namespace PhantomBrigade.SDK.ModTools
             }
 
             modData.SyncMetadata ();
+        }
+
+        public static void ImportLocalizationEdits (DataContainerModData modData, string pathSelected)
+        {
+            var pathImportTextEdits = Path.Combine (pathSelected, DataContainerModData.localizationEditsFolderName);
+            var dirImportTextEdits = new DirectoryInfo (pathImportTextEdits);
+            if (dirImportTextEdits.Exists)
+            {
+                var ok = EditorUtility.DisplayDialog
+                (
+                    "Import LocalizationEdits?",
+                    $"Discovered the LocalizationEdits (text modifications) folder in the selected import folder. Would you like to load its contents into the selected mod project (ID {modData.id})? The imported text edits might overwrite existing text edits." +
+                    $"\n\nFrom folder: \n{pathSelected}/LocalizationEdits" +
+                    "\n\nTo project metadata: \n(Edits are stored in the project metadata, no per-edit files used until export)",
+                    "Import LocalizationEdits",
+                    "Skip"
+                );
+                if (ok)
+                {
+                    try
+                    {
+                        ModConfigLocEdit.LoadFromMod (modData, false, pathImportTextEdits);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException (e);
+                    }
+                }
+                if (modData.textEdits?.languages != null && modData.textEdits.languages.Count > 0)
+                {
+                    ok = EditorUtility.DisplayDialog
+                    (
+                        "Apply text edits to Configs?",
+                        "The mod has imported text edits. Would you like to apply them directly to Configs so that they show up in data editors?",
+                        "Apply to Configs",
+                        "Skip"
+                    );
+                    if (ok)
+                    {
+                        ModTextHelper.ApplyTextChangesToConfigs (modData);
+                    }
+                }
+            }
         }
 
         public static void CopyConfigsFromZippedMod (DataContainerModData modData, string pathSelected)

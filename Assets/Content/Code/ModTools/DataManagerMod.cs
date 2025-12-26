@@ -829,7 +829,7 @@ namespace PhantomBrigade.SDK.ModTools
             }
 
             [FoldoutGroup(OdinGroup.Name.Utilities)]
-            [HorizontalGroup (OdinGroup.Name.UtilityButtons)]
+            [HorizontalGroup (OdinGroup.Name.UtilityButtons1)]
             [EnableIf (nameof(IsConfigEntryAllowed))]
             [PropertyTooltip ("Replace the Configs folder with the original files from the SDK. Equivalent to setting up config editing for the first time.")]
             [Button (SdfIconType.FileEarmarkBreakFill, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Reset all configs")]
@@ -855,7 +855,7 @@ namespace PhantomBrigade.SDK.ModTools
                 DeselectForEditing ();
             }
 
-            [HorizontalGroup (OdinGroup.Name.UtilityButtons)]
+            [HorizontalGroup (OdinGroup.Name.UtilityButtons1)]
             [PropertyTooltip ("Export the mod files into the mod project folder without taking any additional step (no export to user folder, archive or Workshop).")]
             [Button (SdfIconType.Box, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Export to source")]
             public static void ExportSimple ()
@@ -865,7 +865,7 @@ namespace PhantomBrigade.SDK.ModTools
                     ModToolsExperimental.GenerateModFiles (modSelected, null);
             }
 
-            [HorizontalGroup (OdinGroup.Name.UtilityButtons)]
+            [HorizontalGroup (OdinGroup.Name.UtilityButtons2)]
             [PropertyTooltip ("Import files from an exported mod into this mod project. An inverse of the standard export operations.")]
             [Button (SdfIconType.Files, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Import from mod")]
             public static void ImportFromFolder ()
@@ -879,7 +879,7 @@ namespace PhantomBrigade.SDK.ModTools
                 ModToolsExperimental.CopyConfigsFromExportedMod (modData, pathSelected);
             }
 
-            [HorizontalGroup (OdinGroup.Name.UtilityButtons)]
+            [HorizontalGroup (OdinGroup.Name.UtilityButtons2)]
             [PropertyTooltip ("Import files from an exported mod into this mod project. An inverse of the standard export operations.")]
             [Button (SdfIconType.Files, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Import from zip")]
             public static void ImportFromZipFile ()
@@ -892,6 +892,20 @@ namespace PhantomBrigade.SDK.ModTools
                 var pathProject = modData.GetModPathProject ();
                 var pathSelected = EditorUtility.OpenFilePanel ("Select Folder", pathProject, "zip");
                 ModToolsExperimental.CopyConfigsFromZippedMod (modData, pathSelected);
+            }
+
+            [HorizontalGroup (OdinGroup.Name.UtilityButtons2)]
+            [PropertyTooltip ("Import files from localized edits.")]
+            [Button (SdfIconType.Files, IconAlignment.LeftEdge, ButtonHeight = 32, Name = "Import localizations")]
+            public static void ImportLocalizations ()
+            {
+                var modData = modSelected;
+                if (modData == null)
+                {
+                    return;
+                }
+                var pathProject = modData.GetModPathProject ();
+                ModToolsExperimental.ImportLocalizationEdits (modData, pathProject);
             }
 
             public void OnSelectionChange ()
@@ -912,7 +926,8 @@ namespace PhantomBrigade.SDK.ModTools
                     public const string RenameButtons = Rename + "/Buttons";
                     public const string RenameMove = Rename + "/Move";
                     public const string Utilities = nameof(Utilities);
-                    public const string UtilityButtons = Utilities + "/Buttons";
+                    public const string UtilityButtons1 = Utilities + "/Buttons1";
+                    public const string UtilityButtons2 = Utilities + "/Buttons2";
                 }
 
                 public static class Order
