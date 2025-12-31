@@ -19,47 +19,65 @@ namespace PhantomBrigade.ModTools
     [Serializable, HideDuplicateReferenceBox]
     public class ModConfigEditSource
     {
-        [PropertyOrder (12), BoxGroup ("dataLinker", false), LabelText ("Global DB edits")]
-        [OnValueChanged ("UpdateLinkers", true)]
-        [ListDrawerSettings (HideAddButton = true, DraggableItems = false)]
-        [HideIf ("@dataLinkers == null")]
-        public List<ModConfigEditLinker> dataLinkers;
-        
-        [PropertyOrder (22), BoxGroup ("dataMultiLinker", false), LabelText ("Collection DB edits")]
-        [OnValueChanged ("UpdateMultiLinkers", true)]
-        [ListDrawerSettings (HideAddButton = true, DraggableItems = false)]
-        [HideIf ("@dataMultiLinkers == null")]
-        public List<ModConfigEditMultiLinker> dataMultiLinkers;
-
-        public void OnAfterDeserialization ()
-        {
-            #if UNITY_EDITOR
-            UpdateLinkers ();
-            UpdateMultiLinkers ();
-            #endif
-        }
-        
-        #region Editor
+        #region Load from files
         #if UNITY_EDITOR
+        [HorizontalGroup(OdinGroup.Name.LoadButtons, Order = OdinGroup.Order.LoadButtons)]
+        [Button ("Load from mod")]
+        void LoadFromModSelected ()
+        {
+            if (DataManagerMod.modSelected == null)
+            {
+                return;
+            }
+            LoadFromMod (DataManagerMod.modSelected);
+        }
 
+        [HorizontalGroup (OdinGroup.Name.LoadButtons)]
+        [Button ("Load from files")]
+        void LoadFromPath ()
+        {
+            if (DataManagerMod.modSelected == null)
+            {
+                return;
+            }
+            var pathMods = DataPathHelper.GetCombinedPath (PathParentType.User, "Mods");
+            var pathSelected = EditorUtility.OpenFolderPanel ("Select Folder", pathMods, "");
+            LoadFromMod (DataManagerMod.modSelected, pathCustom: pathSelected);
+        }
+        #endif
+        #endregion
+
+        #region DataLinker
+        #if UNITY_EDITOR
+        [BoxGroup (OdinGroup.Name.DataLinker, false, Order = OdinGroup.Order.DataLinker)]
+        [HideIf ("@" + nameof(dataLinkers) + " == null")]
+        [ListDrawerSettings (HideAddButton = true, DraggableItems = false)]
+        [OnValueChanged (nameof(UpdateLinkers), true)]
+        [LabelText ("Global DB edits")]
+        #endif
+        public List<ModConfigEditLinker> dataLinkers;
+
+        #if UNITY_EDITOR
         [ShowInInspector]
-        [PropertyOrder (10), BoxGroup ("dataLinker"), HorizontalGroup ("dataLinker/Add"), HideLabel]
-        [ValueDropdown ("GetLinkerKeysUnused")] 
-        private string dataLinkerTypeAdded = string.Empty;
+        [HorizontalGroup (OdinGroup.Name.DataLinkerAdd)]
+        [ValueDropdown (nameof(GetLinkerKeysUnused))]
+        [HideLabel]
+        string dataLinkerTypeAdded = string.Empty;
 
-        [PropertyOrder (11), BoxGroup ("dataLinker"), HorizontalGroup ("dataLinker/Add", 200f)]
-        [Button ("Add global DB edit", 21), EnableIf ("IsLinkerTypeSelectionValid")]
-        private void AddLinkerEdit ()
+        [HorizontalGroup (OdinGroup.Name.DataLinkerAdd, 200f)]
+        [EnableIf (nameof(IsLinkerTypeSelectionValid))]
+        [Button ("Add global DB edit", 21)]
+        void AddLinkerEdit ()
         {
             var type = dataLinkerTypeAdded;
             dataLinkerTypeAdded = string.Empty;
-            
+
             if (string.IsNullOrEmpty (type) || !GetLinkerKeys.Contains (type))
             {
                 Debug.LogWarning ($"Can't add linker edit: type [{type}] is not valid");
                 return;
             }
-            
+
             if (dataLinkers != null)
             {
                 foreach (var entry in dataLinkers)
@@ -71,27 +89,42 @@ namespace PhantomBrigade.ModTools
                     }
                 }
             }
-            
+
             if (dataLinkers == null)
                 dataLinkers = new List<ModConfigEditLinker> ();
-            
+
             dataLinkers.Add (new ModConfigEditLinker
             {
                 type = type,
                 file = new ModConfigEditSourceFile ()
             });
-            
+
             UpdateLinkers ();
         }
-        
-        [ShowInInspector]
-        [PropertyOrder (10), BoxGroup ("dataMultiLinker"), HorizontalGroup ("dataMultiLinker/Add"), HideLabel]
-        [ValueDropdown ("GetMultiLinkerKeysUnused")] 
-        private string dataMultiLinkerTypeAdded = string.Empty;
+        #endif
+        #endregion
 
-        [PropertyOrder (21), BoxGroup ("dataMultiLinker"), HorizontalGroup ("dataMultiLinker/Add", 200f)]
-        [Button ("Add collection DB edit", 21), EnableIf ("IsMultiLinkerTypeSelectionValid")]
-        private void AddMultiLinkerEdit ()
+        #region DataMultiLinker
+        #if UNITY_EDITOR
+        [BoxGroup (OdinGroup.Name.DataMultiLinker, false, Order = OdinGroup.Order.DataMultiLinker)]
+        [HideIf ("@" + nameof(dataMultiLinkers) + " == null")]
+        [ListDrawerSettings (HideAddButton = true, DraggableItems = false)]
+        [OnValueChanged (nameof(UpdateMultiLinkers), true)]
+        [LabelText ("Collection DB edits")]
+        #endif
+        public List<ModConfigEditMultiLinker> dataMultiLinkers;
+
+        #if UNITY_EDITOR
+        [ShowInInspector]
+        [HorizontalGroup (OdinGroup.Name.DataMultiLinkerAdd)]
+        [ValueDropdown (nameof(GetMultiLinkerKeysUnused))]
+        [HideLabel]
+        string dataMultiLinkerTypeAdded = string.Empty;
+
+        [HorizontalGroup (OdinGroup.Name.DataMultiLinkerAdd, 200f)]
+        [EnableIf (nameof(IsMultiLinkerTypeSelectionValid))]
+        [Button ("Add collection DB edit", 21)]
+        void AddMultiLinkerEdit ()
         {
             var type = dataMultiLinkerTypeAdded;
             dataMultiLinkerTypeAdded = string.Empty;
@@ -104,8 +137,8 @@ namespace PhantomBrigade.ModTools
             {
                 Debug.LogWarning ($"Can't add multi-linker edit: type [{type}] is not valid");
                 return null;
-            } 
-            
+            }
+
             if (dataMultiLinkers != null)
             {
                 foreach (var entry in dataMultiLinkers)
@@ -127,22 +160,35 @@ namespace PhantomBrigade.ModTools
                 edits = new List<ModConfigEditSourceFileMultiLinker> (),
             };
             dataMultiLinkers.Add (mce);
-            
+
             UpdateMultiLinkers ();
 
             return mce;
         }
-	    
+        #endif
+        #endregion
+
+        public void OnAfterDeserialization ()
+        {
+            #if UNITY_EDITOR
+            UpdateLinkers ();
+            UpdateMultiLinkers ();
+            #endif
+        }
+
+        #region Editor
+        #if UNITY_EDITOR
+
         private Color GetElementColor (int index) => DataEditor.GetColorFromElementIndex (index);
         private List<string> typeNamesTemp = new List<string> ();
 
         public IEnumerable<string> GetLinkerKeys => UtilityDatabaseSerialization.GetLinkerTypeNames ();
-       
+
         public IEnumerable<string> GetMultiLinkerKeys => UtilityDatabaseSerialization.GetMultiLinkerTypeNames ();
-        
-        public IEnumerable<string> GetLinkerKeysUnused => 
+
+        public IEnumerable<string> GetLinkerKeysUnused =>
             GetTypeNamesUnused (UtilityDatabaseSerialization.GetLinkerTypeNames (), linkerTypeCoverage);
-        public IEnumerable<string> GetMultiLinkerKeysUnused => 
+        public IEnumerable<string> GetMultiLinkerKeysUnused =>
             GetTypeNamesUnused (UtilityDatabaseSerialization.GetMultiLinkerTypeNames (), multiLinkerTypeCoverage);
 
         private bool IsLinkerTypeSelectionValid ()
@@ -154,8 +200,8 @@ namespace PhantomBrigade.ModTools
             var keysUnused = GetLinkerKeysUnused;
             return keysUnused != null && keysUnused.Contains (type);
         }
-            
-        
+
+
         private bool IsMultiLinkerTypeSelectionValid ()
         {
             var type = dataMultiLinkerTypeAdded;
@@ -165,7 +211,7 @@ namespace PhantomBrigade.ModTools
             var keysUnused = GetMultiLinkerKeysUnused;
             return keysUnused != null && keysUnused.Contains (type);
         }
-        
+
         private IEnumerable<string> GetTypeNamesUnused (IEnumerable<string> typeNamesAll, Dictionary<string, int> typeUsageMap)
         {
             typeNamesTemp.Clear ();
@@ -181,18 +227,18 @@ namespace PhantomBrigade.ModTools
             return typeNamesTemp;
         }
 
-        private void UpdateLinkers () 
+        private void UpdateLinkers ()
         {
             linkerTypeCoverage.Clear ();
             if (dataLinkers == null)
                 return;
-            
+
             for (int i = 0; i < dataLinkers.Count; ++i)
             {
                 var entry = dataLinkers[i];
                 if (entry == null)
                     continue;
-                
+
                 entry.parent = this;
                 if (string.IsNullOrEmpty (entry.type))
                     entry.component = null;
@@ -206,13 +252,13 @@ namespace PhantomBrigade.ModTools
                 }
             }
         }
-        
+
         private void UpdateMultiLinkers ()
         {
             multiLinkerTypeCoverage.Clear ();
             if (dataMultiLinkers == null)
                 return;
-            
+
             for (int i = 0; i < dataMultiLinkers.Count; ++i)
             {
                 var entry = dataMultiLinkers[i];
@@ -220,7 +266,7 @@ namespace PhantomBrigade.ModTools
                     continue;
 
                 entry.parent = this;
-                
+
                 if (string.IsNullOrEmpty (entry.type))
                     entry.component = null;
                 else
@@ -231,11 +277,11 @@ namespace PhantomBrigade.ModTools
                     else
                         multiLinkerTypeCoverage.Add (entry.type, 1);
                 }
-                
+
                 entry.OnEditsChanged ();
             }
         }
-        
+
         private Dictionary<string, int> linkerTypeCoverage = new Dictionary<string, int> ();
         private Dictionary<string, int> multiLinkerTypeCoverage = new Dictionary<string, int> ();
 
@@ -245,7 +291,7 @@ namespace PhantomBrigade.ModTools
                 return count >= 2;
             return false;
         }
-        
+
         public bool IsMultiLinkerTypeDuplicate (string type)
         {
             if (!string.IsNullOrEmpty (type) && multiLinkerTypeCoverage != null && multiLinkerTypeCoverage.TryGetValue (type, out var count))
@@ -271,7 +317,7 @@ namespace PhantomBrigade.ModTools
             var editPath = DataPathHelper.GetCombinedCleanPath (rootPath, "ConfigEdits");
             UtilitiesYAML.PrepareClearDirectory (editPath, false, false);
             Debug.Log ($"Exporting config edits for mod {modData.id} to {editPath}");
-            
+
             if (dataLinkers != null)
             {
                 int e = -1;
@@ -281,7 +327,7 @@ namespace PhantomBrigade.ModTools
                     var editsSource = entry?.file?.edits;
                     if (editsSource == null || editsSource.Count == 0)
                         continue;
-                    
+
                     if (entry.component == null)
                     {
                         Debug.LogWarning ($"Linker edit {e} ({entry.type}) skipped, no component found for type nam {entry.type}");
@@ -291,7 +337,7 @@ namespace PhantomBrigade.ModTools
                     var linkerType = entry.component.GetType ();
                     var containerType = linkerType?.BaseType?.GenericTypeArguments.FirstOrDefault ();
                     var containerPath = DataPathUtility.GetPath (containerType);
-                    
+
                     if (string.IsNullOrEmpty (containerPath))
                     {
                         Debug.LogWarning ($"Linker edit {e} ({entry.type}) skipped, no path found for type nam {entry.type}");
@@ -303,7 +349,7 @@ namespace PhantomBrigade.ModTools
 
                     var editsSaved = new List<string> (editsSource.Count);
                     var config = new ModConfigEditSerialized { edits = editsSaved };
-                    
+
                     for (int i = 0; i < editsSource.Count; ++i)
                     {
                         var editSource = editsSource[i];
@@ -311,12 +357,12 @@ namespace PhantomBrigade.ModTools
                         if (!string.IsNullOrEmpty (editSaved))
                             editsSaved.Add (editSaved);
                     }
-                    
+
                     UtilitiesYAML.SaveToFile (containerPath, config);
                     Debug.Log ($"Linker edit {e} ({entry.type}): \n- {containerPath}");
                 }
             }
-            
+
             if (dataMultiLinkers != null)
             {
                 int e = -1;
@@ -325,7 +371,7 @@ namespace PhantomBrigade.ModTools
                     e += 1;
                     if (entry == null || entry.edits == null || entry.edits.Count == 0)
                         continue;
-                    
+
                     if (entry.component == null)
                     {
                         Debug.LogWarning ($"Multi-linker edit {e} ({entry.type}) skipped, no component found for type name {entry.type}");
@@ -335,13 +381,13 @@ namespace PhantomBrigade.ModTools
                     var linkerType = entry.component.GetType ();
                     var containerType = linkerType?.BaseType?.GenericTypeArguments.FirstOrDefault ();
                     var dirPath = DataPathUtility.GetPath (containerType);
-                    
+
                     if (string.IsNullOrEmpty (dirPath))
                     {
                         Debug.LogWarning ($"Multi-linker edit {e} ({entry.type}) skipped, no path found for type name {entry.type}");
                         continue;
                     }
-                    
+
                     dirPath = dirPath.Replace ("Configs", "ConfigEdits");
                     dirPath = DataPathHelper.GetCombinedCleanPath (rootPath, dirPath);
 
@@ -349,7 +395,7 @@ namespace PhantomBrigade.ModTools
                     {
                         if (configEdit == null || string.IsNullOrEmpty (configEdit.key))
                             continue;
-                        
+
                         var editsSource = configEdit.edits;
                         if (!configEdit.removed && (editsSource == null || editsSource.Count == 0))
                             continue;
@@ -380,82 +426,7 @@ namespace PhantomBrigade.ModTools
                 }
             }
         }
-        
-        private ModConfigEditStep GetEditSaved (ModConfigEditSourceLine editSource)
-        {
-            if (editSource == null)
-            {
-                return null;
-            }
 
-            var valueFinal = editSource.value;
-            if (operationMap.TryGetValue ((int)editSource.operation, out var op))
-            {
-                switch (editSource.operation)
-                {
-                    case ModUtilities.EditOperation.NullValue:
-                    case ModUtilities.EditOperation.DefaultValue:
-                    case ModUtilities.EditOperation.Remove:
-                        valueFinal = op;
-                        break;
-                    case ModUtilities.EditOperation.Add:
-                        valueFinal += op;
-                        break;
-                }
-            }
-                        
-            return new ModConfigEditStep
-            {
-                path = editSource.path,
-                value = valueFinal,
-            };
-        }
-        
-        private string GetEditSavedString (ModConfigEditSourceLine editSource)
-        {
-            if (editSource == null)
-            {
-                return null;
-            }
-
-            var valueFinal = editSource.value;
-            if (operationMap.TryGetValue ((int)editSource.operation, out var op))
-            {
-                switch (editSource.operation)
-                {
-                    case ModUtilities.EditOperation.NullValue:
-                    case ModUtilities.EditOperation.DefaultValue:
-                    case ModUtilities.EditOperation.Remove:
-                        valueFinal = op;
-                        break;
-                    case ModUtilities.EditOperation.Add:
-                        valueFinal += " " + op;
-                        break;
-                }
-            }
-
-            return editSource.path + ": " + valueFinal;
-        }
-
-        static readonly Dictionary<int, string> operationMap = new Dictionary<int, string> ()
-        {
-            [(int)ModUtilities.EditOperation.NullValue] = ModUtilities.Constants.Operator.NullValue,
-            [(int)ModUtilities.EditOperation.DefaultValue] = ModUtilities.Constants.Operator.DefaultValue,
-            [(int)ModUtilities.EditOperation.Add] = ModUtilities.Constants.Operator.Insert,
-            [(int)ModUtilities.EditOperation.Remove] = ModUtilities.Constants.Operator.Remove,
-        };
-        
-        [PropertyOrder (-1)]
-        [Button ("Load from files")]
-        private void LoadFromModSelected ()
-        {
-            if (DataManagerMod.modSelected != null)
-                LoadFromMod (DataManagerMod.modSelected);
-        }
-        
-        private const char editSeparator = ':';
-
-        // [Button ("Load from folder")]
         public static void LoadFromMod (DataContainerModData modData, bool showWarning = true, string pathCustom = null)
         {
             if (modData == null)
@@ -472,17 +443,17 @@ namespace PhantomBrigade.ModTools
 
             var rootPath = modData.GetModPathProject ();
             var pathImport = DataPathHelper.GetCombinedCleanPath (rootPath, DataContainerModData.editsFolderName);
-            
+
             if (!string.IsNullOrEmpty (pathCustom))
                 pathImport = DataPathHelper.GetCleanPath (pathCustom);
-            
+
             DirectoryInfo dirImport = new DirectoryInfo (pathImport);
             if (!dirImport.Exists)
             {
                 Debug.LogWarning ($"Can't load config edits, import path {pathImport} doesn't exist");
                 return;
             }
-            
+
             FileInfo[] filesConfigEdits = dirImport.GetFiles ("*.yaml", SearchOption.AllDirectories);
             if (filesConfigEdits.Length == 0)
             {
@@ -504,20 +475,20 @@ namespace PhantomBrigade.ModTools
                     return;
                 }
             }
-            
+
             Debug.Log ($"Loading edits from ConfigEdits folder. Potential files: {filesConfigEdits.Length}\nMod: {modData.id}\nSource: {pathImport}");
 
             var dataTypeGlobal = typeof (DataContainerUnique);
             var dataTypeCollection = typeof (DataContainer);
             ModUtilities.Initialize (false);
-            
+
             if (modData.configEdits == null)
                 modData.configEdits = new ModConfigEditSource ();
 
             modData.configEdits.dataLinkers = null;
             modData.configEdits.dataMultiLinkers = null;
 
-            for (int i = 0; i < filesConfigEdits.Length; ++i)
+            for (var i = 0; i < filesConfigEdits.Length; i += 1)
             {
                 var filePath = DataPathHelper.GetCleanPath (filesConfigEdits[i].FullName);
                 var filePathTrimmed = filePath.Replace (pathImport, string.Empty);
@@ -529,7 +500,7 @@ namespace PhantomBrigade.ModTools
                     filePathTrimmed = filePathTrimmed.Replace (".yaml", string.Empty);
 
                 var fileName = Path.GetFileNameWithoutExtension (filePath);
-                
+
                 var typeName = DataPathUtility.GetDataTypeFromPath (filePathTrimmed);
                 if (typeName == null)
                 {
@@ -550,13 +521,13 @@ namespace PhantomBrigade.ModTools
                     Debug.LogWarning ($"Edit {i} | Failed to deserialize file at path {filePathTrimmed}");
                     continue;
                 }
-                
+
                 bool isCollection = dataTypeCollection.IsAssignableFrom (dataType);
                 bool isGlobal = dataTypeGlobal.IsAssignableFrom (dataType);
-                
+
                 if (!isCollection && !isGlobal)
                     continue;
-                
+
                 var component = UtilityDatabaseSerialization.GetComponentForDataType (dataType);
                 if (component == null)
                 {
@@ -565,7 +536,7 @@ namespace PhantomBrigade.ModTools
                 }
 
                 var componentTypeName = component.GetType ().Name;
-                
+
                 if (dataTypeCollection.IsAssignableFrom (dataType))
                 {
                     Debug.Log ($"Collection edit {i} | File name: {fileName}\n- Path trimmed: {filePathTrimmed}\n- Path full: {filePath}\n- Data component: {componentTypeName}\n- Data type ({dataTypeCollection.Name}): {dataType.Name}\n- Edits: {dataSerialized.edits.ToStringFormatted ()}");
@@ -605,7 +576,7 @@ namespace PhantomBrigade.ModTools
                                 fileEdits = fileEditsCandidate;
                         }
                     }
-                    
+
                     if (fileEdits == null)
                     {
                         fileEdits = new ModConfigEditSourceFileMultiLinker { key = fileName };
@@ -621,8 +592,8 @@ namespace PhantomBrigade.ModTools
                     {
                         fileEdits.removed = false;
                         fileEdits.edits = new List<ModConfigEditSourceLine> ();
-                        
-                        for (int e = 0; e < dataSerialized.edits.Count; ++e)
+
+                        for (var e = 0; e < dataSerialized.edits.Count; e += 1)
                         {
                             var editString = dataSerialized.edits[e];
                             if (editString == null)
@@ -631,12 +602,12 @@ namespace PhantomBrigade.ModTools
                             var split = editString.Split (editSeparator);
                             if (split.Length != 2)
                                 continue;
-                        
+
                             var path = split[0];
                             var value = split[1];
                             if (value.StartsWith (" "))
                                 value = value.Substring (1, value.Length - 1);
-                        
+
                             var (eop, valueRaw) = ModUtilities.ParseOperation (value);
                             fileEdits.edits.Add (new ModConfigEditSourceLine
                             {
@@ -672,21 +643,21 @@ namespace PhantomBrigade.ModTools
                         modData.configEdits.dataLinkers.Add (linkerEdits);
                     }
 
-                    for (int e = 0; e < dataSerialized.edits.Count; ++e)
+                    for (var e = 0; e < dataSerialized.edits.Count; e += 1)
                     {
                         var editString = dataSerialized.edits[e];
                         if (editString == null)
                             continue;
-                        
+
                         var split = editString.Split (editSeparator);
                         if (split.Length != 2)
                             continue;
-                        
+
                         var path = split[0];
                         var value = split[1];
                         if (value.StartsWith (" "))
                             value = value.Substring (1, value.Length - 1);
-                        
+
                         var (eop, valueRaw) = ModUtilities.ParseOperation (value);
                         linkerEdits.file.edits.Add (new ModConfigEditSourceLine
                         {
@@ -697,14 +668,99 @@ namespace PhantomBrigade.ModTools
                     }
                 }
             }
-            
+
             modData.configEdits.OnAfterDeserialization ();
         }
-        
+
+        private ModConfigEditStep GetEditSaved (ModConfigEditSourceLine editSource)
+        {
+            if (editSource == null)
+            {
+                return null;
+            }
+
+            var valueFinal = editSource.value;
+            if (operationMap.TryGetValue ((int)editSource.operation, out var op))
+            {
+                switch (editSource.operation)
+                {
+                    case ModUtilities.EditOperation.NullValue:
+                    case ModUtilities.EditOperation.DefaultValue:
+                    case ModUtilities.EditOperation.Remove:
+                        valueFinal = op;
+                        break;
+                    case ModUtilities.EditOperation.Add:
+                        valueFinal += op;
+                        break;
+                }
+            }
+
+            return new ModConfigEditStep
+            {
+                path = editSource.path,
+                value = valueFinal,
+            };
+        }
+
+        private string GetEditSavedString (ModConfigEditSourceLine editSource)
+        {
+            if (editSource == null)
+            {
+                return null;
+            }
+
+            var valueFinal = editSource.value;
+            if (operationMap.TryGetValue ((int)editSource.operation, out var op))
+            {
+                switch (editSource.operation)
+                {
+                    case ModUtilities.EditOperation.NullValue:
+                    case ModUtilities.EditOperation.DefaultValue:
+                    case ModUtilities.EditOperation.Remove:
+                        valueFinal = op;
+                        break;
+                    case ModUtilities.EditOperation.Add:
+                        valueFinal += " " + op;
+                        break;
+                }
+            }
+
+            return editSource.path + ": " + valueFinal;
+        }
+
+        static readonly Dictionary<int, string> operationMap = new Dictionary<int, string> ()
+        {
+            [(int)ModUtilities.EditOperation.NullValue] = ModUtilities.Constants.Operator.NullValue,
+            [(int)ModUtilities.EditOperation.DefaultValue] = ModUtilities.Constants.Operator.DefaultValue,
+            [(int)ModUtilities.EditOperation.Add] = ModUtilities.Constants.Operator.Insert,
+            [(int)ModUtilities.EditOperation.Remove] = ModUtilities.Constants.Operator.Remove,
+        };
+
+        const char editSeparator = ':';
+
+        static class OdinGroup
+        {
+            public static class Name
+            {
+                public const string DataLinker = nameof(DataLinker);
+                public const string DataLinkerAdd = nameof(DataLinkerAdd);
+                public const string DataMultiLinker = nameof(DataMultiLinker);
+                public const string DataMultiLinkerAdd = nameof(DataMultiLinkerAdd);
+                public const string LoadButtons = nameof(LoadButtons);
+            }
+
+            public static class Order
+            {
+                public const float LoadButtons = -1f;
+                public const float DataLinker = 10f;
+                public const float DataMultiLinker = 20f;
+            }
+        }
+
         #endif
         #endregion
     }
-    
+
     [HideReferenceObjectPicker, HideDuplicateReferenceBox]
     public class ModConfigEditLinker
     {
@@ -712,19 +768,19 @@ namespace PhantomBrigade.ModTools
         [GUIColor ("GetTypeColor")]
         [HideLabel, ValueDropdown ("GetLinkerTypes"), ReadOnly]
         public string type;
-        
+
         [HideInInspector, YamlIgnore]
         public Component component;
 
         [HideLabel]
         public ModConfigEditSourceFile file = new ModConfigEditSourceFile ();
-        
+
         #region Editor
         #if UNITY_EDITOR
 
         [HideInInspector, YamlIgnore]
         public ModConfigEditSource parent = null;
-        
+
         private IEnumerable<string> GetLinkerTypes => parent?.GetLinkerKeysUnused;
         private bool IsTypeDuplicate => parent != null && parent.IsLinkerTypeDuplicate (type);
         private Color GetTypeColor => IsTypeDuplicate || !IsComponentPresent ? ModToolsColors.HighlightError : Color.white;
@@ -750,7 +806,7 @@ namespace PhantomBrigade.ModTools
         [GUIColor ("GetTypeColor")]
         [HideLabel, ValueDropdown ("GetMultiLinkerTypes"), ReadOnly]
         public string type;
-        
+
         [HideInInspector, YamlIgnore]
         public IDataMultiLinker component;
 
@@ -758,13 +814,13 @@ namespace PhantomBrigade.ModTools
         [OnValueChanged ("OnEditsChanged", true)]
         [ListDrawerSettings (HideAddButton = true, DraggableItems = false)]
         public List<ModConfigEditSourceFileMultiLinker> edits = new List<ModConfigEditSourceFileMultiLinker> ();
-        
+
         #region Editor
         #if UNITY_EDITOR
-        
+
         [ShowInInspector]
         [PropertyOrder (10), HorizontalGroup ("Add"), HideLabel]
-        [ValueDropdown ("GetConfigKeysUnused")] 
+        [ValueDropdown ("GetConfigKeysUnused")]
         private string configKeyAdded = string.Empty;
 
         [PropertyOrder (11), HorizontalGroup ("Add")]
@@ -827,15 +883,15 @@ namespace PhantomBrigade.ModTools
         {
             if (edits == null)
                 return;
-            
+
             edits.Sort ((x, y) => string.Compare (x.key, y.key, StringComparison.Ordinal));
             foreach (var edit in edits)
                 edit.parent = this;
         }
-        
+
         [HideInInspector, YamlIgnore]
         public ModConfigEditSource parent = null;
-        
+
         private IEnumerable<string> GetMultiLinkerTypes => parent?.GetMultiLinkerKeysUnused;
         private bool IsTypeDuplicate => parent != null && parent.IsMultiLinkerTypeDuplicate (type);
         private Color GetTypeColor => IsTypeDuplicate || !IsComponentPresent ? ModToolsColors.HighlightError : Color.white;
@@ -855,7 +911,7 @@ namespace PhantomBrigade.ModTools
                 return null;
             return component.GetKeysLocal ();
         }
-        
+
         private List<string> configKeysUsed = new List<string> ();
         private List<string> GetConfigKeysUsed ()
         {
@@ -867,13 +923,13 @@ namespace PhantomBrigade.ModTools
             }
             return configKeysUsed;
         }
-        
+
         private List<string> configKeysUnused = new List<string> ();
         private List<string> GetConfigKeysUnused ()
         {
             var keysUsed = GetConfigKeysUsed ();
             var keysAll = GetConfigKeysAll ();
-            
+
             configKeysUnused.Clear ();
             if (keysAll != null)
             {
@@ -892,32 +948,32 @@ namespace PhantomBrigade.ModTools
             var keysAll = GetConfigKeysAll ();
             return !string.IsNullOrEmpty (configKeyAdded) && !keysUsed.Contains (configKeyAdded) && keysAll.Contains (configKeyAdded);
         }
-        
+
         #endif
         #endregion
     }
-    
+
     [HideDuplicateReferenceBox, HideReferenceObjectPicker]
     public class ModConfigEditSourceFile
     {
         [ListDrawerSettings (CustomAddFunction = "@new ModConfigEditSourceLine ()")]
         public List<ModConfigEditSourceLine> edits = new List<ModConfigEditSourceLine> ();
     }
-    
+
     public class ModConfigEditSourceFileMultiLinker : ModConfigEditSourceFile
     {
         [HorizontalGroup]
         [PropertyOrder (-2), ReadOnly, HideLabel]
         public string key;
-        
+
         [PropertyOrder (-1)]
         public bool removed;
-        
+
         [HideInInspector, YamlIgnore]
         public ModConfigEditMultiLinker parent = null;
-        
+
         #if UNITY_EDITOR
-        
+
         private bool IsComponentPresent => parent != null && parent.component != null;
 
         [HorizontalGroup (80f)]
@@ -931,31 +987,31 @@ namespace PhantomBrigade.ModTools
             multiLinker.SelectObject ();
             multiLinker.SetFilter (true, key, true);
         }
-        
+
         #endif
     }
-    
+
     [LabelWidth (80f)]
     [HideDuplicateReferenceBox, HideReferenceObjectPicker]
     public class ModConfigEditSourceLine
     {
         [HideLabel, SuffixLabel ("Path", true)]
         public string path;
-        
+
         [PropertyOrder (2)]
         [HorizontalGroup, HideLabel, SuffixLabel ("Value", true)]
         [ShowIf ("IsValueVisible")]
         public string value;
-        
+
         [PropertyOrder (1)]
         [HorizontalGroup (120f), HideLabel]
         public ModUtilities.EditOperation operation;
-        
+
         #region Editor
         #if UNITY_EDITOR
 
         private bool IsValueVisible => operation == ModUtilities.EditOperation.Add || operation == ModUtilities.EditOperation.Override;
-        
+
         #endif
         #endregion
     }
