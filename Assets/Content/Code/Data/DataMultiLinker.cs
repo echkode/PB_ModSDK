@@ -841,14 +841,14 @@ namespace PhantomBrigade.Data
                 Debug.LogWarning ($"Failed to restore configs for type {typeof (T).Name}: no relative path found");
                 return;
             }
-            
+
             if (!hasSelectedMod || !IsModdable ())
                 return;
-            
+
             var pathModRoot = DataContainerModData.selectedMod.GetModPathProject ();
             var pathMod = Path.Combine (pathModRoot, pathRelative);
             var dirMod = new DirectoryInfo (pathMod);
-            
+
             var pathSDKRoot = DataPathHelper.GetApplicationFolder ();
             var pathSDK = Path.Combine (pathSDKRoot, pathRelative);
             var dirSDK = new DirectoryInfo (pathSDK);
@@ -857,20 +857,20 @@ namespace PhantomBrigade.Data
                 Debug.LogWarning ($"Failed to restore configs for type {typeof (T).Name}: SDK path not found at {pathSDK}");
                 return;
             }
-            
-            if (!EditorUtility.DisplayDialog 
+
+            if (!EditorUtility.DisplayDialog
                 (
-                    "Restore from SDK?", 
-                    "Are you sure you'd like to overwrite all of your changes to this config? This operation can not be reverted. Back up your changes if you are not sure." + 
-                    "\n\nPath: \n" + 
-                    pathRelative, 
-                    "Confirm", 
+                    "Restore from SDK?",
+                    "Are you sure you'd like to overwrite all of your changes to this config? This operation can not be reverted. Back up your changes if you are not sure." +
+                    "\n\nPath: \n" +
+                    pathRelative,
+                    "Confirm",
                     "Cancel")
                )
             {
                 return;
             }
-            
+
             Debug.Log ($"Restoring:\nSDK: {pathSDK}\nMod: {pathMod}");
 
             try
@@ -880,7 +880,7 @@ namespace PhantomBrigade.Data
                     dirMod.Delete (true);
                     Debug.LogWarning ($"Deleting existing config folder...");
                 }
-                
+
                 Directory.CreateDirectory (pathMod);
                 ModToolsHelper.CopyConfigDB (dirSDK, pathMod);
                 LoadData ();
@@ -919,6 +919,26 @@ namespace PhantomBrigade.Data
         #endif
 
         public static List<string> textSectorKeys = null;
+
+        #if PB_MODSDK
+        [ShowInInspector]
+        [FoldoutGroup (OdinGroup.Name.Settings)]
+        [OnValueChanged (nameof(ToggleModOnlyEntries))]
+        [LabelText ("Show mod-only entries")]
+        public static bool showModOnlyEntries = false;
+
+        void ToggleModOnlyEntries ()
+        {
+            if (showModOnlyEntries)
+            {
+                ApplyFilter ();
+            }
+            else
+            {
+                SetFilter (false, "", filterExact);
+            }
+        }
+        #endif
 
         [FoldoutGroup (OdinGroup.Name.Settings)]
         [LabelText ("Auto-load in Edit Mode")]
@@ -1606,6 +1626,27 @@ namespace PhantomBrigade.Data
             else
                 dataFiltered.Clear ();
 
+            #if PB_MODSDK
+            if (showModOnlyEntries)
+            {
+                var sdk = new HashSet<string> (SDKKeys);
+                var mod = new HashSet<string> (data.Keys);
+                mod.ExceptWith (sdk);
+                foreach (var key in mod)
+                {
+                    dataFiltered.Add (new DataFilterKeyValuePair<T>
+                    {
+                        keyLast = key,
+                        key = key,
+                        value = data[key],
+                        parent = this,
+                        foldoutUsed = true
+                    });
+                }
+                return;
+            }
+            #endif
+
             var filterSplit = filter.Split (' ');
             if (!filterExact && filterSplit.Length > 1)
             {
@@ -1819,6 +1860,10 @@ namespace PhantomBrigade.Data
 
         private bool IsFilterUsed ()
         {
+            #if PB_MODSDK
+            if (showModOnlyEntries)
+                return true;
+            #endif
             return filterUsed && !string.IsNullOrEmpty (filter);
         }
 
@@ -1952,10 +1997,10 @@ namespace PhantomBrigade.Data
             {
                 var copy = UtilitiesYAML.CloneThroughYaml (value);
                 copy.key = keyNew;
-                
+
                 if (IsDeserializedOnCopy ())
                     copy.OnAfterDeserialization (key);
-                
+
                 dataInternal.Add (keyNew, copy);
             }
 
