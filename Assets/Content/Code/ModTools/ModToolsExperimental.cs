@@ -134,7 +134,7 @@ namespace PhantomBrigade.SDK.ModTools
             CancelExport ();
         }
 
-        static bool IsFileEqual (FileInfo a, FileInfo b)
+        public static bool IsFileEqual (FileInfo a, FileInfo b)
         {
             if (a == null || b == null)
                 return false;

@@ -820,6 +820,7 @@ namespace PhantomBrigade.Data
 
         static bool isSaveAvailable => DataContainerModData.hasSelectedConfigs || typeof(T) == typeof(DataContainerModToolsPage);
         static bool hasSelectedMod => DataContainerModData.hasSelectedConfigs;
+        static bool configEnabled => hasSelectedMod && IsModdableStatic ();
         static Color colorSepia => ModToolsColors.HighlightNeonSepia;
 
         [ShowIf (nameof(IsModdable))]
@@ -923,6 +924,7 @@ namespace PhantomBrigade.Data
         #if PB_MODSDK
         [ShowInInspector]
         [FoldoutGroup (OdinGroup.Name.Settings)]
+        [ShowIf ("@" + nameof(configEnabled) + " && !" + nameof(IsUsingDirectories) + " ()")]
         [OnValueChanged (nameof(ToggleModOnlyEntries))]
         [LabelText ("Show mod-only entries")]
         public static bool showModOnlyEntries = false;
@@ -1627,22 +1629,9 @@ namespace PhantomBrigade.Data
                 dataFiltered.Clear ();
 
             #if PB_MODSDK
-            if (showModOnlyEntries)
+            if (showModOnlyEntries && !IsUsingDirectories () && DataContainerModData.selectedMod != null)
             {
-                var sdk = new HashSet<string> (SDKKeys);
-                var mod = new HashSet<string> (data.Keys);
-                mod.ExceptWith (sdk);
-                foreach (var key in mod)
-                {
-                    dataFiltered.Add (new DataFilterKeyValuePair<T>
-                    {
-                        keyLast = key,
-                        key = key,
-                        value = data[key],
-                        parent = this,
-                        foldoutUsed = true
-                    });
-                }
+                ApplyModOnlyFilter ();
                 return;
             }
             #endif
@@ -1715,6 +1704,71 @@ namespace PhantomBrigade.Data
 
             // PrepareKeyReplacement ();
         }
+
+        #if PB_MODSDK
+        void ApplyModOnlyFilter ()
+        {
+            var sdk = new HashSet<string> (SDKKeys);
+            var pathSDK = DataPathHelper.GetApplicationFolder ();
+            var pathSDKConfigs = DataPathHelper.GetCombinedCleanPath (pathSDK, "Configs");
+            if (!Directory.Exists (pathSDKConfigs))
+            {
+                Debug.LogError ("SDK configs directory does not exist: " + pathSDKConfigs);
+                return;
+            }
+
+            var pathMod = DataContainerModData.selectedMod.GetModPathProject ();
+            var pathModConfigs = DataPathHelper.GetCombinedCleanPath (pathMod, "Configs");
+            if (!Directory.Exists (pathModConfigs))
+            {
+                Debug.LogError ("Mod project directory does not exist: " + pathModConfigs);
+                return;
+            }
+            var pathRelative = path.Substring (pathModConfigs.Length + 1);
+            foreach (var key in sdk)
+            {
+                var ps = DataPathHelper.GetCombinedCleanPath (pathSDKConfigs, pathRelative, key) + ".yaml";
+                var fiSDK = new FileInfo (ps);
+                if (!fiSDK.Exists)
+                {
+                    Debug.LogWarning ("Missing SDK config file: " + ps);
+                    continue;
+                }
+                var pm = DataPathHelper.GetCombinedCleanPath (path, key) + ".yaml";
+                var fiMod = new FileInfo (pm);
+                if (!fiMod.Exists)
+                {
+                    continue;
+                }
+                if (ModToolsExperimental.IsFileEqual (fiSDK, fiMod))
+                {
+                    continue;
+                }
+                dataFiltered.Add (new DataFilterKeyValuePair<T>
+                {
+                    keyLast = key,
+                    key = key,
+                    value = data[key],
+                    parent = this,
+                    foldoutUsed = true
+                });
+            }
+
+            var mod = new HashSet<string> (data.Keys);
+            mod.ExceptWith (sdk);
+            foreach (var key in mod)
+            {
+                dataFiltered.Add (new DataFilterKeyValuePair<T>
+                {
+                    keyLast = key,
+                    key = key,
+                    value = data[key],
+                    parent = this,
+                    foldoutUsed = true
+                });
+            }
+        }
+        #endif
 
         private void AddDataFiltered ()
         {
