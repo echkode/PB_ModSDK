@@ -927,19 +927,26 @@ namespace PhantomBrigade.Data
         [ShowIf ("@" + nameof(configEnabled) + " && !" + nameof(IsUsingDirectories) + " ()")]
         [OnValueChanged (nameof(ToggleModOnlyEntries))]
         [LabelText ("Show mod-only entries")]
-        public static bool showModOnlyEntries = false;
+        static bool showModOnlyEntries = false;
 
         void ToggleModOnlyEntries ()
         {
             if (showModOnlyEntries)
             {
-                ApplyFilter ();
+                filterUsedLast = filterUsed;
+                filterLast = filter;
+                filterExactLast = filterExact;
+                SetFilter (false, "", false);
             }
             else
             {
-                SetFilter (false, "", filterExact);
+                SetFilter (filterUsedLast, filterLast, filterExactLast);
             }
         }
+
+        bool filterUsedLast;
+        string filterLast;
+        bool filterExactLast;
         #endif
 
         [FoldoutGroup (OdinGroup.Name.Settings)]
