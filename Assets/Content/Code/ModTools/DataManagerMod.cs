@@ -301,59 +301,6 @@ namespace PhantomBrigade.SDK.ModTools
 
         #endregion
 
-        // Parts backing and displaying the selected mod
-        #region ModSelected
-
-        static readonly SortedDictionary<string, string> modsLoadedPaths = new SortedDictionary<string, string> ();
-        static readonly SortedDictionary<string, DataContainerModData> mods = new SortedDictionary<string, DataContainerModData> ();
-
-        public static string GetModCountText () => (mods?.Count ?? 0).ToString ();
-        public static IEnumerable<string> GetModKeys () => mods?.Keys;
-        public static bool IsModSelectionVisible () => modSelected != null;
-        public static bool IsModSelectionPossible () => SteamWorkshopHelper.IsUtilityOperationAvailable;
-        public static string GetModSelectionTitle () => modSelected != null ? "Selected mod" : "No mod selected";
-        public static Color GetSelectedKeyColor () => DataContainerModData.selectedMod != null && DataContainerModData.selectedMod == modSelected
-            ? DataContainerModData.colorSelected
-            : Color.white;
-
-        [ShowInInspector]
-        [PropertyOrder (OdinGroup.Order.ModSelector)]
-        [EnableIf (nameof(IsModSelectionPossible))]
-        [ValueDropdown (nameof (GetModKeys))]
-        [Title ("Selected mod")]
-        [HideLabel, SuffixLabel ("$" + nameof (GetModCountText)), GUIColor (nameof (GetSelectedKeyColor))]
-        public static string modSelectedID
-        {
-            get => modSelectedIDInternal;
-            set
-            {
-                // Disable config edits on changes to this key
-                DataContainerModData.selectedMod = null;
-                modSelectedIDInternal = value;
-                modOptions.OnSelectionChange ();
-            }
-        }
-
-        static string modSelectedIDInternal;
-
-        [ShowInInspector]
-        [BoxGroup (OdinGroup.Name.ModSelected, false, false, OdinGroup.Order.ModSelected)]
-        [ShowIf (nameof(IsModSelectionVisible))]
-        [HideLabel, HideReferenceObjectPicker, HideDuplicateReferenceBox]
-        public static DataContainerModData modSelected
-        {
-            get => !string.IsNullOrEmpty (modSelectedID) && mods != null && mods.TryGetValue (modSelectedID, out var value)
-                ? value
-                : null;
-            set
-            {
-
-            }
-        }
-
-        #endregion
-
-
         // Parts providing options for selected mod (save/load/delete/rename/duplicate and more)
         // Wrapped in a subclass to separate utility fields like error strings, reduce the need for top level grouping attributes etc.
         #region ModOptions
@@ -406,6 +353,7 @@ namespace PhantomBrigade.SDK.ModTools
                     Debug.Log ($"Loaded new project {id} | Full path: {filePath}");
                 }
                 mods[id] = modData;
+                ModdedDatabase.Find (modData, DataManagerMod.moddedDatabases);
             }
 
             [HorizontalGroup (OdinGroup.Name.LoadSave, 0.3333f)]
@@ -811,7 +759,11 @@ namespace PhantomBrigade.SDK.ModTools
                 var modData = modSelected;
                 if (modData != null)
                 {
-                    ModToolsExperimental.GenerateModFiles (modSelected, modData.ExportToUserFolderFinalize);
+                    ModToolsExperimental.GenerateModFiles (modSelected, () =>
+                    {
+                        modData.ExportToUserFolderFinalize ();
+                        ModdedDatabase.Find (modData, DataManagerMod.moddedDatabases);
+                    });
                 }
             }
 
@@ -824,7 +776,11 @@ namespace PhantomBrigade.SDK.ModTools
                 var modData = modSelected;
                 if (modData != null)
                 {
-                    ModToolsExperimental.GenerateModFiles (modSelected, modData.ExportToArchiveFinalize);
+                    ModToolsExperimental.GenerateModFiles (modSelected, () =>
+                    {
+                        modData.ExportToArchiveFinalize ();
+                        ModdedDatabase.Find (modData, DataManagerMod.moddedDatabases);
+                    });
                 }
             }
 
@@ -861,8 +817,11 @@ namespace PhantomBrigade.SDK.ModTools
             public static void ExportSimple ()
             {
                 var modData = modSelected;
-                if (modData != null)
-                    ModToolsExperimental.GenerateModFiles (modSelected, null);
+                if (modData == null)
+                {
+                    return;
+                }
+                ModToolsExperimental.GenerateModFiles (modSelected, () => ModdedDatabase.Find (modData, DataManagerMod.moddedDatabases));
             }
 
             [HorizontalGroup (OdinGroup.Name.UtilityButtons2)]
@@ -938,11 +897,191 @@ namespace PhantomBrigade.SDK.ModTools
         }
 
 
+        [ShowInInspector]
+        [BoxGroup (OdinGroup.Name.ModOpts, false, Order = OdinGroup.Order.ModOpts)]
         [ShowIf (nameof(IsModSelectionVisible))]
-        [ShowInInspector, HideLabel, PropertyOrder (23)]
-        [BoxGroup ("BgSelected", false)]
+        [HideLabel]
         public static readonly ModOptions modOptions = new ModOptions ();
 
+        #endregion
+
+        // Parts backing and displaying the selected mod
+        #region ModSelected
+
+        static readonly SortedDictionary<string, string> modsLoadedPaths = new SortedDictionary<string, string> ();
+        static readonly SortedDictionary<string, DataContainerModData> mods = new SortedDictionary<string, DataContainerModData> ();
+
+        public static string GetModCountText () => (mods?.Count ?? 0).ToString ();
+        public static IEnumerable<string> GetModKeys () => mods?.Keys;
+        public static bool IsModSelectionVisible () => modSelected != null;
+        public static bool IsModSelectionPossible () => SteamWorkshopHelper.IsUtilityOperationAvailable;
+        public static string GetModSelectionTitle () => modSelected != null ? "Selected mod" : "No mod selected";
+        public static Color GetSelectedKeyColor () => DataContainerModData.selectedMod != null && DataContainerModData.selectedMod == modSelected
+            ? DataContainerModData.colorSelected
+            : Color.white;
+
+        [ShowInInspector]
+        [PropertyOrder (OdinGroup.Order.ModSelector)]
+        [EnableIf (nameof(IsModSelectionPossible))]
+        [ValueDropdown (nameof (GetModKeys))]
+        [OnValueChanged (nameof(OnChangeModSelected))]
+        [Title ("Selected mod")]
+        [HideLabel, SuffixLabel ("$" + nameof (GetModCountText)), GUIColor (nameof (GetSelectedKeyColor))]
+        public static string modSelectedID
+        {
+            get => modSelectedIDInternal;
+            set
+            {
+                // Disable config edits on changes to this key
+                DataContainerModData.selectedMod = null;
+                modSelectedIDInternal = value;
+                modOptions.OnSelectionChange ();
+            }
+        }
+
+        static string modSelectedIDInternal;
+
+        [ShowInInspector]
+        [BoxGroup (OdinGroup.Name.ModSelected, false, false, OdinGroup.Order.ModSelected)]
+        [ShowIf (nameof(IsModSelectionVisible))]
+        [HideLabel, HideReferenceObjectPicker, HideDuplicateReferenceBox]
+        public static DataContainerModData modSelected
+        {
+            get => !string.IsNullOrEmpty (modSelectedID) && mods != null && mods.TryGetValue (modSelectedID, out var value)
+                ? value
+                : null;
+            set
+            {
+                // Hack to prevent Odin from treating value as read-only.
+            }
+        }
+
+        static void OnChangeModSelected ()
+        {
+            if (modSelected == null)
+            {
+                return;
+            }
+            ModdedDatabase.Find (modSelected, moddedDatabases);
+        }
+
+        #endregion
+
+        #region Modded Databases
+        #if PB_MODSDK
+        sealed class ModdedDatabase
+        {
+            [PropertyOrder (OdinGroup.SubOrder.ModdedDatabaseSelect)]
+            [TableColumnWidth (64, false)]
+            [Button]
+            public void Select ()
+            {
+                if (!ModOptions.IsConfigExitAllowed ())
+                {
+                    ModOptions.SelectForEditing ();
+                }
+                UnityEditor.Selection.activeObject = database;
+            }
+
+            [PropertyOrder (OdinGroup.SubOrder.ModdedDatabaseName)]
+            [ReadOnly]
+            public string name;
+
+            public static void Find (DataContainerModData modData, List<ModdedDatabase> databases)
+            {
+                databases.Clear ();
+
+                var pathMod = modData.GetModPathProject ();
+                var pathOverrides = DataPathHelper.GetCombinedCleanPath (pathMod, DataContainerModData.overridesFolderName);
+                var dirOverrides = new DirectoryInfo (pathOverrides);
+                var overrides = new HashSet<string> ();
+                foreach (var fi in dirOverrides.EnumerateFiles ("*.yaml", SearchOption.AllDirectories))
+                {
+                    var pathRelative = fi.FullName.Substring (pathOverrides.Length + 1);
+                    pathRelative = pathRelative.Substring (0, pathRelative.Length - fi.Name.Length);
+                    var typeName = DataPathUtility.GetDataTypeFromPath (pathRelative);
+                    if (typeName == null)
+                    {
+                        Debug.LogWarning ("Unable to resolve path to type: " + pathRelative);
+                        continue;
+                    }
+                    var dataType = FieldReflectionUtility.GetTypeByName (typeName);
+                    if (dataType == null)
+                    {
+                        Debug.LogWarning ("Unable to resolve type name: " + typeName);
+                        continue;
+                    }
+                    var dml = UtilityDatabaseSerialization.GetMultiLinkerForContainer (dataType);
+                    if (dml == null)
+                    {
+                        var dlc = UtilityDatabaseSerialization.GetComponentForDataType (dataType);
+                        if (dlc == null)
+                        {
+                            Debug.LogWarning ("Component for type not found: " + typeName);
+                            continue;
+                        }
+                        if (pathRelative.StartsWith ("Data/"))
+                        {
+                            pathRelative = "Global/" + pathRelative.Substring ("Data".Length);
+                        }
+                        else if (pathRelative.StartsWith ("DataDecomposed/"))
+                        {
+                            pathRelative = "Collections/" +  pathRelative.Substring ("DataDecomposed/".Length);
+                        }
+                        databases.Add (new ModdedDatabase (
+                            pathRelative.TrimEnd ('/'),
+                            dlc
+                        ));
+                        continue;
+                    }
+                    if (!dml.IsModdable ())
+                    {
+                        continue;
+                    }
+                    if (dml.IsUsingDirectories ())
+                    {
+                        pathRelative = Path.GetDirectoryName (pathRelative.TrimEnd ('/'));
+                    }
+                    if (!overrides.Add (pathRelative))
+                    {
+                        continue;
+                    }
+                    databases.Add (new ModdedDatabase (
+                        pathRelative.Replace("DataDecomposed", "Collections").TrimEnd ('/'),
+                        (Component)dml
+                    ));
+                }
+                Debug.Log ("Modded databases: " + databases.Count);
+            }
+
+            public ModdedDatabase (string name, Component database)
+            {
+                this.name = name;
+                this.database = database;
+            }
+
+            readonly Component database;
+        }
+
+        [BoxGroup (OdinGroup.Name.ConfigOverrides, VisibleIf = nameof(showConfigOverrides), Order = OdinGroup.Order.ConfigOverrides)]
+        [PropertyOrder (OdinGroup.SubOrder.ConfigOverridesSearch)]
+        [Button (SdfIconType.Search, IconAlignment.LeftOfText, ButtonHeight = 32, Name = "Search")]
+        public void FindModdedDatabases ()
+        {
+            ModToolsExperimental.GenerateModFiles (modSelected, () => ModdedDatabase.Find (modSelected, moddedDatabases));
+        }
+
+        [ShowInInspector]
+        [BoxGroup(OdinGroup.Name.ConfigOverrides)]
+        [PropertyOrder (OdinGroup.SubOrder.ConfigOverridesList)]
+        [TableList (IsReadOnly = true, ShowPaging = false, HideToolbar = true, DrawScrollView = true, AlwaysExpanded = true)]
+        static readonly List<ModdedDatabase> moddedDatabases = new List<ModdedDatabase> ();
+
+        static bool showConfigOverrides => modSelected != null
+            && modSelected.hasProjectFolder
+            && Directory.Exists (modSelected.GetModPathConfigs ());
+
+        #endif
         #endregion
 
         [HorizontalGroup (OdinGroup.Name.LoadSaveAll, Order = OdinGroup.Order.LoadSaveAll)]
@@ -1207,7 +1346,9 @@ namespace PhantomBrigade.SDK.ModTools
         {
             public static class Name
             {
+                public const string ConfigOverrides = "Config Overrides";
                 public const string LoadSaveAll = nameof(LoadSaveAll);
+                public const string ModOpts = nameof(ModOpts);
                 public const string ModSelected = nameof(ModSelected);
                 public const string Settings = nameof(Settings);
                 public const string SettingsButtons = Settings + "/Buttons";
@@ -1219,11 +1360,17 @@ namespace PhantomBrigade.SDK.ModTools
                 public const float Settings = -90f;
                 public const float LoadSaveAll = -89f;
                 public const float ModSelector = 21;
+                public const float ModOpts = 23;
                 public const float ModSelected = 24;
+                public const float ConfigOverrides = 30;
             }
 
             public static class SubOrder
             {
+                public const float ConfigOverridesSearch = 0f;
+                public const float ConfigOverridesList = 1f;
+                public const float ModdedDatabaseSelect = 0f;
+                public const float ModdedDatabaseName = 1f;
                 public const float SettingsButtons = 0f;
                 public const float SettingsList = 1f;
             }

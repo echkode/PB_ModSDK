@@ -286,8 +286,6 @@ public class UtilityDatabaseSerialization : MonoBehaviour
                 : null
             : null;
 
-    public Dictionary<Type, IDataMultiLinker> FindAllMultiLinkers () => containerLookup;
-
     [VerticalGroup (OdinGroup.Name.Mod, Order = OdinGroup.Order.Mod)]
     [PropertySpace (8f)]
     [Button ("Reset loadedOnce for all\nloaded linkers & multilinkers", ButtonHeight = 40)]
@@ -321,7 +319,6 @@ public class UtilityDatabaseSerialization : MonoBehaviour
     {
         if (!initialized)
         {
-            initialized = true;
             Initialize ();
         }
     }
@@ -374,10 +371,10 @@ public class UtilityDatabaseSerialization : MonoBehaviour
         var t = dml.GetType ();
         if (!t.IsConstructedGenericType && t.BaseType != null)
             t = t.BaseType;
-        
+
         return t.GetGenericArguments ()[0];
     }
-    
+
     static readonly Dictionary<Type, Component> dataTypeToLinkerComponentLookup = new Dictionary<Type, Component> ();
     static readonly Dictionary<Type, Component> dataTypeToMultiLinkerComponentLookup = new Dictionary<Type, Component> ();
 

@@ -1724,8 +1724,7 @@ namespace PhantomBrigade.Data
                 return;
             }
 
-            var pathMod = DataContainerModData.selectedMod.GetModPathProject ();
-            var pathModConfigs = DataPathHelper.GetCombinedCleanPath (pathMod, "Configs");
+            var pathModConfigs = DataContainerModData.selectedMod.GetModPathConfigs ();
             if (!Directory.Exists (pathModConfigs))
             {
                 Debug.LogError ("Mod project directory does not exist: " + pathModConfigs);
