@@ -994,6 +994,10 @@ namespace PhantomBrigade.SDK.ModTools
                 var pathMod = modData.GetModPathProject ();
                 var pathOverrides = DataPathHelper.GetCombinedCleanPath (pathMod, DataContainerModData.overridesFolderName);
                 var dirOverrides = new DirectoryInfo (pathOverrides);
+                if (!dirOverrides.Exists)
+                {
+                    return;
+                }
                 var overrides = new HashSet<string> ();
                 foreach (var fi in dirOverrides.EnumerateFiles ("*.yaml", SearchOption.AllDirectories))
                 {
