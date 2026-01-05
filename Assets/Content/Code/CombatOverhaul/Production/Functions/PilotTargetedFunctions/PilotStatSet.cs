@@ -10,22 +10,24 @@ namespace PhantomBrigade.Functions
 {
     public class PilotStatSet : IPilotTargetedFunction, IFunctionLocalizedText
     {
+        #if !PB_MODSDK
         [InfoBox ("@GetLocalizedText ()", InfoMessageType.None)]
+        #endif
         [ValueDropdown ("@DataMultiLinkerPilotStat.data.Keys")]
         public string key;
         public bool normalized;
         public float value;
-        
+
         public void Run (PersistentEntity pilot, PersistentEntity entityPersistentLinked)
         {
             #if !PB_MODSDK
-            
+
             if (pilot != null)
                 pilot.SetPilotStat (key, value, normalized);
-            
+
             #endif
         }
-        
+
         public string GetLocalizedText ()
         {
             #if !PB_MODSDK
@@ -43,25 +45,25 @@ namespace PhantomBrigade.Functions
             #endif
         }
     }
-    
+
     public class PilotStatClamp : IPilotTargetedFunction
     {
         [ValueDropdown ("@DataMultiLinkerPilotStat.data.Keys")]
         public string key;
         public float min;
         public float max;
-        
+
         public void Run (PersistentEntity pilot, PersistentEntity entityPersistentLinked)
         {
             #if !PB_MODSDK
-            
+
             if (pilot != null)
             {
                 var valueCurrent = pilot.GetPilotStat (key);
                 var valueClamped = Mathf.Clamp (valueCurrent, min, Mathf.Max (min, max));
                 pilot.SetPilotStat (key, valueClamped);
             }
-            
+
             #endif
         }
     }
