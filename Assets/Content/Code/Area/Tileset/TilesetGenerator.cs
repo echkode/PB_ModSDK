@@ -413,7 +413,7 @@ namespace Area
                     {
                         if (!tilesetCompletenessChecklist[j])
                         {
-                            Debug.LogWarning ("TG | InstantiateAndCheckModels | Configuration index " + j + ", linked to byte " + configurationsByte[j] + ", which can be represented as " + TilesetUtility.GetStringFromConfiguration (TilesetUtility.GetConfigurationFromByte (configurationsByte[j])) + " was not covered by the currently imported tileset!");
+                            Debug.LogWarning ("TG | InstantiateAndCheckModels | Configuration index " + j + ", linked to byte " + configurationsByte[j] + ", which can be represented as " + TilesetUtility.GetStringFromConfiguration (configurationsByte[j]) + " was not covered by the currently imported tileset!");
                             missingConfigurationCount += 1;
                             valid = false;
                         }
@@ -606,7 +606,7 @@ namespace Area
         }
 
         // If it's already merged, get merged object from library
-        // 
+        //
 
         public List<ReusedMeshData> multiblockReusedMeshData;
         public class ReusedMeshData
@@ -689,7 +689,7 @@ namespace Area
                         // if (string.Equals (materialsCopy[i].name, materialReplacements[m].undesiredMaterials[u].name))
                         var texNameFilter = materialReplacements[m].textureName;
                         var texName = materialsCopy[i].mainTexture.name;
-                        
+
                         if (texName.Contains (texNameFilter))
                         {
                             if (logMaterialReplacement)
@@ -1167,7 +1167,7 @@ namespace Area
 
             string progressBarHeader1 = "Saving " + subfolderName;
             string progressBarHeader2 = "Loading " + subfolderName;
-            
+
             float progressBarPercentage = 0.0f;
             EditorUtility.DisplayProgressBar (progressBarHeader1, "Starting...", progressBarPercentage);
 
@@ -1188,7 +1188,7 @@ namespace Area
                         SaveObjectMesh (tilesetMerged.GetChild (b).gameObject, folderTilesetExport + "/" + tilesetMerged.name + "/" + subfolderName);
                     }
                 }
-                
+
                 for (int i = 0; i < holderMerged.childCount; ++i)
                 {
                     Transform tilesetMerged = holderMerged.GetChild (i);
@@ -1224,7 +1224,7 @@ namespace Area
                 Mathf.RoundToInt (localPosition.z)
             );
         }
-        
+
         public void SaveObjectMesh (GameObject objectMerged, string exportPath)
         {
             Debug.Log ("TG | SaveObjectMesh | Exporting asset to path: " + exportPath);
@@ -1238,7 +1238,7 @@ namespace Area
             MeshFilter filter = objectMerged.GetComponent<MeshFilter> ();
             UtilityAssetDatabase.CreateAssetSafely (filter.sharedMesh, exportPath + "/" + objectMerged.name + ".asset", false);
         }
-        
+
         public void AssignSavedMeshToObject (GameObject objectMerged, string exportPath)
         {
             if (objectMerged == null)
@@ -1260,7 +1260,7 @@ namespace Area
 
             objectMerged = PrefabUtility.CreatePrefab (exportPath + "/" + objectMerged.name + ".prefab", objectMerged, ReplacePrefabOptions.Default);
             filter = objectMerged.GetComponent<MeshFilter> ();
-            
+
             if (filter.sharedMesh == null)
                 Debug.Log ("TG | AssignSavedMeshToObject | Mesh missing from object prefab " + objectMerged.name);
         }

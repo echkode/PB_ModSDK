@@ -14,7 +14,7 @@ public class AreaBackgroundHelper : MonoBehaviour
         public GameObject holder;
         public CompressedObjectHolder props;
     }
-    
+
     public AreaManager am;
 
     public string testKey;
@@ -31,15 +31,15 @@ public class AreaBackgroundHelper : MonoBehaviour
     public void Setup ()
     {
         biomeLookup = new Dictionary<string, BiomeInfo> ();
-        
+
         if (biomes == null)
             biomes = new List<BiomeInfo> ();
-        
+
         foreach (var biome in biomes)
         {
             if (biome == null || string.IsNullOrEmpty (biome.key) || biomeLookup.ContainsKey (biome.key) || biome.holder == null)
                 continue;
-            
+
             biomeLookup.Add (biome.key, biome);
 
             var cols = biome.holder.GetComponentsInChildren<Collider> (true);
@@ -54,7 +54,7 @@ public class AreaBackgroundHelper : MonoBehaviour
     {
         Rebuild (testKey);
     }
-    
+
     public void RebuildOnlyBoundaryDecal ()
     {
         if (am == null || am.points.Count < 8)
@@ -62,13 +62,13 @@ public class AreaBackgroundHelper : MonoBehaviour
             Debug.LogWarning ($"Failed to load background for area due to no manager reference or points");
             return;
         }
-        
+
         int sizeX = am.boundsFull.x - 1;
         int sizeZ = am.boundsFull.z - 1;
-        
+
         float sizeXScaled = sizeX * TilesetUtility.blockAssetSize;
         float sizeZScaled = sizeZ * TilesetUtility.blockAssetSize;
-        
+
         #if !PB_MODSDK
         WorldUICombat.OnConfigureMapBoundaries (sizeXScaled, sizeZScaled);
         #endif
@@ -82,7 +82,7 @@ public class AreaBackgroundHelper : MonoBehaviour
                 biome.holder.SetActive (false);
         }
     }
-    
+
     public void Rebuild (string biomeKey)
     {
         if (am == null || am.points.Count < 8)
@@ -90,19 +90,19 @@ public class AreaBackgroundHelper : MonoBehaviour
             Debug.LogWarning ($"Failed to load background for area due to no manager reference or points");
             return;
         }
-        
+
         if (string.IsNullOrEmpty (biomeKey) || biomeLookup == null || !biomeLookup.ContainsKey (biomeKey))
         {
             Debug.LogWarning ($"Failed to load background for biome {biomeKey}");
             return;
         }
-        
+
         int sizeX = am.boundsFull.x - 1;
         int sizeZ = am.boundsFull.z - 1;
-        
+
         int heightfieldLength = am.boundsFull.x * am.boundsFull.z;
         heightfieldScaled = new int[am.boundsFull.x, am.boundsFull.z];
-        
+
         for (int i = 0; i < heightfieldLength; ++i)
         {
             var point = am.points[i];
@@ -114,7 +114,7 @@ public class AreaBackgroundHelper : MonoBehaviour
 
             int iteration = 0;
             bool emptyFound = false;
-            
+
             while (true)
             {
                 if (point.pointState != AreaVolumePointState.Empty)
@@ -132,8 +132,8 @@ public class AreaBackgroundHelper : MonoBehaviour
                     break;
                 }
             }
-            
-            heightfieldScaled[point.pointPositionIndex.x, point.pointPositionIndex.z] = -point.pointPositionIndex.y * TilesetUtility.blockAssetSize;
+
+            heightfieldScaled[point.pointPositionIndex.x, point.pointPositionIndex.z] = -point.pointPositionIndex.y * Mathf.RoundToInt (TilesetUtility.blockAssetSize);
         }
 
         float sizeXScaled = sizeX * TilesetUtility.blockAssetSize;
@@ -158,7 +158,7 @@ public class AreaBackgroundHelper : MonoBehaviour
                 if (biome.holder.activeSelf != match)
                     biome.holder.SetActive (match);
             }
-            
+
             if (biome.props != null)
             {
                 var batchLinker = biome.props.GetComponent<ECSRendererBatchLinker> ();

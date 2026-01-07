@@ -15,7 +15,7 @@ namespace Area
         public const byte configurationBitBottomSelf = 0x08;
         public const byte configurationBitmaskSelf = configurationBitTopSelf | configurationBitBottomSelf;
 
-        public const int blockAssetSize = 3;
+        public const float blockAssetSize = 3f;
         public const float blockAssetHalfSize = blockAssetSize / 2f;
         public const int blockAssetRotationShift = 1;
         public const float blockAssetRotationBasis = -90f;
@@ -26,63 +26,6 @@ namespace Area
             blockAssetFlipDifferentAxis ? 1f : -1f, 1f,
             blockAssetFlipDifferentAxis ? -1f : 1f, 1f
         );
-
-        public static bool IsConfigurationIdentical (bool[] configA, bool[] configB)
-        {
-            bool match = true;
-            if (configA.Length != configB.Length)
-                match = false;
-            else
-            {
-                for (int i = 0; i < 8; ++i)
-                {
-                    if (configA[i] != configB[i])
-                    {
-                        match = false;
-                        break;
-                    }
-                }
-            }
-            return match;
-        }
-
-        public static bool IsDamageTemplateIdentical (AreaVolumePointState[] templateA, AreaVolumePointState[] templateB)
-        {
-            if (templateA == templateB)
-            {
-                Debug.LogWarning ("AU | IsDamageTemplateIdentical | Comparing exactly the same array object!");
-                return true;
-            }
-
-            bool match = true;
-            if (templateA.Length != templateB.Length)
-                match = false;
-            else
-            {
-                for (int i = 0; i < 8; ++i)
-                {
-                    if (templateA[i] != templateB[i])
-                        match = false;
-                }
-            }
-            return match;
-        }
-
-        public static bool[] GetConfigurationFromInt (int configurationInt)
-        {
-            int[] p = new int[8];
-            bool[] configuration = new bool[8];
-            for (int i = 0; i < 8; ++i)
-            {
-                p[7 - i] = configurationInt % 2;
-                configurationInt = configurationInt / 2;
-            }
-            for (int i = 0; i < 8; ++i)
-            {
-                configuration[i] = p[i] == 1 ? true : false;
-            }
-            return configuration;
-        }
 
         public static int GetIntFromConfiguration (bool[] configuration)
         {
@@ -98,17 +41,6 @@ namespace Area
             return configurationInt;
         }
 
-        public static byte GetByteFromConfiguration (bool[] configuration)
-        {
-            byte configurationByte = 0;
-            foreach (bool point in configuration)
-            {
-                configurationByte <<= 1;
-                if (point) configurationByte |= 1;
-            }
-            return configurationByte;
-        }
-
         public static bool[] GetConfigurationFromByte (byte configurationByte)
         {
             bool[] configuration = new bool[8];
@@ -118,14 +50,6 @@ namespace Area
                 configuration[i] = configurationBitArray[7 - i];
             }
             return configuration;
-        }
-
-        public static void TestByteConversion (bool[] configuration)
-        {
-            int configurationInt = GetIntFromConfiguration (configuration);
-            byte configurationByte = GetByteFromConfiguration (configuration);
-            bool[] configurationRestored = GetConfigurationFromByte (configurationByte);
-            Debug.Log ("TU | TestByteConversion | Source: " + GetStringFromConfiguration (configuration) + " | Int: " + configurationInt + " | Byte: " + configurationByte.ToString () + " | Restored: " + GetStringFromConfiguration (configurationRestored));
         }
 
         // Transformations
@@ -148,16 +72,13 @@ namespace Area
         // \4   7\      \7   6\
         //  \5___6\  ->  \4___5\
 
-        public static byte first = 1 << 0;
-        public static byte zero = 0;
-
         public static List<byte> GetConfigurationTransformations (byte configuration)
         {
-            List<byte> transformations = new List<byte> ();
-            for (int i = 0; i < 8; ++i)
+            var transformations = new List<byte> ();
+            for (var i = 0; i < 8; i += 1)
             {
-                int rotation = i % 4;
-                bool flip = i > 3;
+                var rotation = i % 4;
+                var flip = i > 3;
                 transformations.Add (GetConfigurationTransformed (configuration, rotation, flip));
             }
             return transformations;
@@ -165,62 +86,31 @@ namespace Area
 
         public static byte GetConfigurationTransformed (byte config, int rotation, bool flip)
         {
-            bool[] configurationTransformed = new bool[8];
-
+            var offset = (4 - rotation) % 4;
+            int transformed;
             if (!flip)
             {
-                configurationTransformed[rotation] = ((((1 << 7) & config) >> 7) == 1);                 // 0, 1, 2, 3
-                configurationTransformed[(1 + rotation) % 4] = (((1 << 6) & config) >> 6) == 1;       // 1, 2, 3, 0
-                configurationTransformed[(2 + rotation) % 4] = (((1 << 5) & config) >> 5) == 1;       // 2, 3, 0, 1
-                configurationTransformed[(3 + rotation) % 4] = (((1 << 4) & config) >> 4) == 1;       // 3, 0, 1, 2
-
-                configurationTransformed[4 + rotation] = (((1 << 3) & config) >> 3) == 1;             // 4, 5, 6, 7
-                configurationTransformed[4 + ((1 + rotation) % 4)] = (((1 << 2) & config) >> 2) == 1; // 5, 6, 7, 4
-                configurationTransformed[4 + ((2 + rotation) % 4)] = (((1 << 1) & config) >> 1) == 1; // 6, 7, 4, 5
-                configurationTransformed[4 + ((3 + rotation) % 4)] = (((1 << 0) & config) >> 0) == 1; // 7, 4, 5, 6
+                transformed = (config & 0x01) << offset
+                    | (config & 0x02) >> 1 << ((offset + 1) % 4)
+                    | (config & 0x04) >> 2 << ((offset + 2) % 4)
+                    | (config & 0x08) >> 3 << ((offset + 3) % 4)
+                    | (config & 0x10) >> 4 << (offset + 4)
+                    | (config & 0x20) >> 5 << ((offset + 1) % 4 + 4)
+                    | (config & 0x40) >> 6 << ((offset + 2) % 4 + 4)
+                    | (config & 0x80) >> 7 << ((offset + 3) % 4 + 4);
             }
             else
             {
-
-                configurationTransformed[rotation] = ((1 << 6) & config) >> 6 == 1;
-                configurationTransformed[(1 + rotation) % 4] = ((1 << 7) & config) >> 7 == 1;
-                configurationTransformed[(2 + rotation) % 4] = ((1 << 4) & config) >> 4 == 1;
-                configurationTransformed[(3 + rotation) % 4] = ((1 << 5) & config) >> 5 == 1;
-
-                configurationTransformed[4 + rotation] = ((1 << 2) & config) >> 2 == 1;
-                configurationTransformed[4 + ((1 + rotation) % 4)] = ((1 << 3) & config) >> 3 == 1;
-                configurationTransformed[4 + ((2 + rotation) % 4)] = ((1 << 0) & config) >> 0 == 1;
-                configurationTransformed[4 + ((3 + rotation) % 4)] = ((1 << 1) & config) >> 1 == 1;
+                transformed = (config & 0x01) << ((offset + 1) % 4)
+                    | (config & 0x02) >> 1 << offset
+                    | (config & 0x04) >> 2 << ((offset + 3) % 4)
+                    | (config & 0x08) >> 3 << ((offset + 2) % 4)
+                    | (config & 0x10) >> 4 << ((offset + 5) % 4 + 4)
+                    | (config & 0x20) >> 5 << (offset + 4)
+                    | (config & 0x40) >> 6 << ((offset + 7) % 4 + 4)
+                    | (config & 0x80) >> 7 << ((offset + 6) % 4 + 4);
             }
-
-            return GetByteFromConfiguration (configurationTransformed);
-        }
-
-        private static AreaVolumePointState[] reusedAVPSArray = new AreaVolumePointState[8];
-
-        public static AreaVolumePointState[] GetDamageTemplateTransformed (AreaVolumePointState[] template, int rotation, bool flipHorizontally, bool flipVertically)
-        {
-            if (reusedAVPSArray.Length != 8)
-                reusedAVPSArray = new AreaVolumePointState[8];
-
-            int[] indexes;
-
-            if (!flipHorizontally && !flipVertically) indexes = new int[] { 0, 1, 2, 3, 4, 5, 6, 7 };
-            else if (flipHorizontally && !flipVertically) indexes = new int[] { 1, 0, 3, 2, 5, 4, 7, 6 };
-            else if (!flipHorizontally && flipVertically) indexes = new int[] { 4, 5, 6, 7, 0, 1, 2, 3 };
-            else indexes = new int[] { 5, 4, 7, 6, 1, 0, 3, 2 };
-
-            reusedAVPSArray[rotation] = template[indexes[0]];                 // 0, 1, 2, 3
-            reusedAVPSArray[(1 + rotation) % 4] = template[indexes[1]];       // 1, 2, 3, 0
-            reusedAVPSArray[(2 + rotation) % 4] = template[indexes[2]];       // 2, 3, 0, 1
-            reusedAVPSArray[(3 + rotation) % 4] = template[indexes[3]];       // 3, 0, 1, 2
-
-            reusedAVPSArray[4 + rotation] = template[indexes[4]];             // 4, 5, 6, 7
-            reusedAVPSArray[4 + ((1 + rotation) % 4)] = template[indexes[5]]; // 5, 6, 7, 4
-            reusedAVPSArray[4 + ((2 + rotation) % 4)] = template[indexes[6]]; // 6, 7, 4, 5
-            reusedAVPSArray[4 + ((3 + rotation) % 4)] = template[indexes[7]]; // 7, 4, 5, 6
-
-            return reusedAVPSArray;
+            return (byte)(transformed & 0xFF);
         }
 
         public static byte GetConfigurationFromString (string configurationString)
@@ -244,58 +134,34 @@ namespace Area
             return configuration;
         }
 
-        public static string GetStringFromConfiguration (bool[] configuration)
-        {
-            StringBuilder sb = new StringBuilder ();
-            string textTrue = "1";
-            string textFalse = "0";
-            for (int i = 0; i < configuration.Length; ++i)
-                sb.Append (configuration[i] ? textTrue : textFalse);
-
-            return sb.ToString ();
-        }
-
+        static readonly char[] configurationStringBuffer = new char[8];
         public static string GetStringFromConfiguration (byte configuration)
         {
-            return GetStringFromConfiguration (GetConfigurationFromByte (configuration));
-        }
-
-        public static bool IsConfigurationRotationPossible (bool[] configuration)
-        {
-            return
-            (
-                (configuration[0] == configuration[1]) &&
-                (configuration[1] == configuration[2]) &&
-                (configuration[2] == configuration[3]) &&
-                (configuration[4] == configuration[5]) &&
-                (configuration[5] == configuration[6]) &&
-                (configuration[6] == configuration[7])
-            );
-        }
-
-        public static bool IsConfigurationTransformableTo (byte configurationA, byte configurationB)
-        {
-            for (int r = 0; r < 8; ++r)
+            for (var i = 0; i < 8; i += 1)
             {
-                int requiredRotation = r % 4;
-                bool requiredFlipping = r > 3;
-                byte configurationTransformed = TilesetUtility.GetConfigurationTransformed (configurationA, requiredRotation, requiredFlipping);
-                if (configurationA == configurationB)
+                if ((configuration & 1 << (7 - i)) != 0)
                 {
-                    return true;
+                    configurationStringBuffer[i] = '1';
+                }
+                else
+                {
+                    configurationStringBuffer[i] = '0';
                 }
             }
-
-            return false;
+            return new string(configurationStringBuffer);
         }
 
-        public static int directionXPos = 0;
-        public static int directionZPos = 1;
-        public static int directionXNeg = 2;
-        public static int directionZNeg = 3;
+        public static bool IsConfigurationRotationPossible (byte configuration) =>
+            ((configuration & 0x0F) == 0 | (configuration & 0x0F) == 0x0F) &
+            ((configuration & 0xF0) == 0 | (configuration & 0xF0) == 0xF0);
 
-        public static int directionYPos = 4;
-        public static int directionYNeg = 5;
+        const int directionXPos = 0;
+        const int directionZPos = 1;
+        const int directionXNeg = 2;
+        const int directionZNeg = 3;
+
+        const int directionYPos = 4;
+        const int directionYNeg = 5;
 
         private static int GetIntFromDirection (PointNeighbourDirection direction)
         {
@@ -421,27 +287,19 @@ namespace Area
 
         public static int GetConfigurationFlippingAxis (byte configuration)
         {
-            int axis = -1;
+            if (IsConfigurationRotationPossible (configuration))
+                return 2;
 
-            List<byte> transformations = GetConfigurationTransformations (configuration);
-            bool[] configurationBool = GetConfigurationFromByte (configuration);
-
-            if (IsConfigurationRotationPossible (configurationBool))
-                axis = 2;
-            else
-            {
-                bool flipsIdenticalOnZ = transformations[0] == transformations[4];
-                bool flipsIdenticalOnX = transformations[1] == transformations[7];
-                bool flipsIdenticalOnZWithNegRotation = transformations[0] == transformations[5];
-                bool flipsIdenticalOnZWithPosRotation = transformations[0] == transformations[7];
-
-                if (flipsIdenticalOnX) axis = 0;
-                if (flipsIdenticalOnZ) axis = 2;
-                if (flipsIdenticalOnZWithNegRotation) axis = 3;
-                if (flipsIdenticalOnZWithPosRotation) axis = 4;
-            }
-
-            return axis;
+            var transformations = GetConfigurationTransformations (configuration);
+            if (transformations[1] == transformations[7])
+                return 0;
+            if (transformations[0] == transformations[4])
+                return 2;
+            if (transformations[0] == transformations[5])
+                return 3;
+            if (transformations[0] == transformations[7])
+                return 4;
+            return -1;
         }
 
         // Rewrite later to do just one loop with source.Length steps, rotation loop with 90 degree step taken at a time should not be used!

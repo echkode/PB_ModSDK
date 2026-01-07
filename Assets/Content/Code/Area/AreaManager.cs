@@ -17,7 +17,7 @@ using UnityEditor;
 namespace Area
 {
     [ExecuteInEditMode, SelectionBase]
-    public class AreaManager : MonoBehaviour
+    public partial class AreaManager : MonoBehaviour
     {
         // Singleton reference
 
@@ -118,8 +118,8 @@ namespace Area
         private static EntityArchetype propChildArchetype;
         private static EntityArchetype simulationRootArchetype;
 
-        private static Entity[] pointEntitiesMain;
-        private static Entity[] pointEntitiesInterior;
+        public static Entity[] pointEntitiesMain;
+        public static Entity[] pointEntitiesInterior;
 
         private static ComponentType componentTypeModel;
         private static ComponentType componentTypeSimulated;
@@ -4142,7 +4142,7 @@ namespace Area
                     if
                     (
                         pointAbove.blockGroup == 1 ||
-                        pointAbove.blockGroup > 50
+                        (pointAbove.blockGroup > 50 && pointAbove.blockGroup < 100)
                     )
                     {
                         clear = false;
@@ -4169,6 +4169,14 @@ namespace Area
                 ApplyShaderPropertiesEverywhere ();
             }
 
+            #if PB_MODSDK && UNITY_EDITOR
+            var combatArea = DataMultiLinkerCombatArea.data[key];
+            if (combatArea != null)
+            {
+                combatArea.errorsCorrectedOnLoad = !ignoreUnresolvedTilesetOnLoad;
+            }
+            #endif
+
             OnAfterAreaLoaded ();
         }
 
@@ -4176,6 +4184,8 @@ namespace Area
         {
 
         }
+
+        #if !PB_MODSDK
 
         public void LoadAreaSnippet (string key, AreaDataCore core, AreaDataContainer dataLoaded)
         {
@@ -4378,8 +4388,6 @@ namespace Area
             if (detectedMissingProps > 0)
                 Debug.LogWarning ("AM | LoadAreaSnippet | Found " + detectedMissingProps + " missing prop IDs");
         }
-
-        #if !PB_MODSDK
 
         public float boundsBoostForCamera = 20f;
         public float boundsBoostForGrid = -1f;
@@ -4720,7 +4728,7 @@ namespace Area
             return null;
         }
 
-
+        #if !PB_MODSDK
         public AreaClipboard clipboard =  new AreaClipboard();
 
         public Vector3Int clipboardOrigin;
@@ -5938,8 +5946,7 @@ namespace Area
             }
 
             Color[] colorArray = textureMaskVegetation.GetPixels ();
-            int gridSize = TilesetUtility.blockAssetSize;
-            float gridSizeHalf = gridSize * 0.5f;
+            float gridSizeHalf = TilesetUtility.blockAssetHalfSize;
             var dualGridOffset = new Vector3 (-gridSizeHalf, 0f, -gridSizeHalf) * 0.5f;
 
             var offsetDiag1 = new Vector3 (0.27f, 0f, 0.27f);
@@ -6980,5 +6987,6 @@ namespace Area
                 }
             }
         }
+        #endif
     }
 }

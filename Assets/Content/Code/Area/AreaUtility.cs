@@ -1,9 +1,6 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using UnityEngine;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using PhantomBrigade;
-using PhantomBrigade.Data;
 
 namespace Area
 {
@@ -11,10 +8,10 @@ namespace Area
     {
         public const float pointColliderInflation = 0.1f;
         public static readonly Vector3 spotOffset = new Vector3 (-1f, 1f, -1f) * TilesetUtility.blockAssetHalfSize;
+        static readonly Vector3Int invalidVolumePosition = Vector3Int.size1x1x1Neg;
         public const int invalidIndex = -1;
 
-        private static Dictionary<int, int[]> reusedExternalIndexes = new Dictionary<int, int[]> ();
-        private static int[] reusedIntegerArray8 = new int[8];
+        private static readonly Dictionary<int, int[]> reusedExternalIndexes = new Dictionary<int, int[]> ();
 
         private static int reusedInteger = 0;
         private static int reusedExternalIndex = -1;
@@ -31,44 +28,12 @@ namespace Area
         {
             if (point != null)
                 return $"({point.pointState}, I-{point.spotIndex} {point.pointPositionIndex}, C-{point.spotConfiguration})";
-            else
-                return "(null)";
+            return "(null)";
         }
 
         public static void ClearCache ()
         {
             reusedExternalIndexes.Clear ();
-        }
-
-        public static void GetNeighbourIndexesInXxYxZ (int externalStartIndex, Vector3Int boundsNeighbourhood, Vector3Int pivotPosition, Vector3Int boundsArea, int[] indexes)
-        {
-            for (int y = 0; y < boundsNeighbourhood.y; ++y)
-            {
-                for (int z = 0; z < boundsNeighbourhood.z; ++z)
-                {
-                    for (int x = 0; x < boundsNeighbourhood.x; ++x)
-                    {
-                        reusedPositionStart = GetVolumePositionFromIndex (externalStartIndex, boundsArea);
-                        reusedPositionFinal = new Vector3Int (reusedPositionStart.x + x + pivotPosition.x, reusedPositionStart.y + y + pivotPosition.y, reusedPositionStart.z + z + pivotPosition.z);
-
-                        reusedInternalIndex = x + boundsNeighbourhood.x * z + boundsNeighbourhood.x * boundsNeighbourhood.z * y;
-                        reusedExternalIndex = invalidIndex;
-
-                        if
-                        (
-                            reusedPositionFinal.x >= 0 &&
-                            reusedPositionFinal.y >= 0 &&
-                            reusedPositionFinal.z >= 0 &&
-                            reusedPositionFinal.x < boundsArea.x &&
-                            reusedPositionFinal.y < boundsArea.y &&
-                            reusedPositionFinal.z < boundsArea.z
-                        )
-                            reusedExternalIndex = GetIndexFromInternalPosition (reusedPositionFinal, boundsArea);
-
-                        indexes[reusedInternalIndex] = reusedExternalIndex;
-                    }
-                }
-            }
         }
 
         /// <summary>
@@ -113,49 +78,6 @@ namespace Area
             return externalIndexes;
         }
 
-
-
-        public static int[] GetNeighbourIndexesIn2x2x2 (int index, Vector3Int pivotPosition, Vector3Int boundsFull)
-        {
-            if (reusedIntegerArray8 == null || reusedIntegerArray8.Length != 8)
-                reusedIntegerArray8 = new int[8];
-
-            reusedIntegerArray8 = GetNeighbourIndexesInXxYxZ (index, Vector3Int.size2x2x2, pivotPosition, boundsFull);
-
-            reusedInteger = reusedIntegerArray8[2];
-            reusedIntegerArray8[2] = reusedIntegerArray8[3];
-            reusedIntegerArray8[3] = reusedInteger;
-
-            reusedInteger = reusedIntegerArray8[6];
-            reusedIntegerArray8[6] = reusedIntegerArray8[7];
-            reusedIntegerArray8[7] = reusedInteger;
-
-            // reusedIntegerArray8[0] = index - (boundsArea.x * boundsArea.z) - boundsArea.x - 1 + shift;
-            // reusedIntegerArray8[1] = index - (boundsArea.x * boundsArea.z) - boundsArea.x + shift;
-            // reusedIntegerArray8[2] = index - (boundsArea.x * boundsArea.z) + shift;
-            // reusedIntegerArray8[3] = index - (boundsArea.x * boundsArea.z) - 1 + shift;
-            // reusedIntegerArray8[4] = index - boundsArea.x - 1 + shift;
-            // reusedIntegerArray8[5] = index - boundsArea.x + shift;
-            // reusedIntegerArray8[6] = index + shift;
-            // reusedIntegerArray8[7] = index - 1 + shift;
-
-            return reusedIntegerArray8;
-        }
-
-        public static void RearrangeNeighbourArrayIn2x2x2 (AreaVolumePoint[] neighbours)
-        {
-            if (neighbours == null || neighbours.Length != 8)
-                return;
-
-            reusedAreaVolumePoint = neighbours[2];
-            neighbours[2] = neighbours[3];
-            neighbours[3] = reusedAreaVolumePoint;
-
-            reusedAreaVolumePoint = neighbours[6];
-            neighbours[6] = neighbours[7];
-            neighbours[7] = reusedAreaVolumePoint;
-        }
-
         public static int GetIndexFromVolumePosition (Vector3Int position, Vector3Int bounds, bool skipBoundsCheck = false) =>
             skipBoundsCheck || GetIsInBounds (position, bounds)
                 ? position.x + position.z * bounds.x + position.y * bounds.x * bounds.z
@@ -175,21 +97,14 @@ namespace Area
 
         public static int GetIndexFromInternalPosition (int x, int z, int boundsX, int boundsZ)
         {
-            bool boundsFit =
-                x >= 0 && x < boundsX &&
-                z >= 0 && z < boundsZ;
-
+            var boundsFit = x >= 0 & x < boundsX & z >= 0 & z < boundsZ;
             // Debug.Log ("AU | GetIndexFromInternalPosition | " + position);
             if (boundsFit)
             {
-                return
-                (
-                    x +
-                    z * boundsX
-                );
+                return x + z * boundsX;
             }
-            else
-                return invalidIndex;
+
+            return invalidIndex;
         }
 
         public static Vector3Int GetInternalPointPositionFromWorld (Vector3 positionInWorld, Vector3 positionOfVolume)
@@ -218,7 +133,10 @@ namespace Area
         public static Vector3Int GetVolumePositionFromIndex (int index, Vector3Int bounds)
         {
             if (bounds.x == 0 || bounds.z == 0)
+            {
                 Debug.LogError ("Division by zero in bounds " + bounds);
+                return invalidVolumePosition;
+            }
             return new Vector3Int (index % bounds.x, index / (bounds.z * bounds.x), (index / bounds.x) % bounds.z);
         }
 
@@ -226,8 +144,6 @@ namespace Area
         {
             return new Vector3 (volumePosition.x, -volumePosition.y, volumePosition.z) * TilesetUtility.blockAssetSize;
         }
-
-
 
         public static AreaVolumePointConfiguration Transform (this AreaVolumePointConfiguration c, int plane, int rotation)
         {
@@ -239,77 +155,92 @@ namespace Area
 
             //                                                   0          1          2          3          4          5          6          7
 
-            // Horizontal plane
-            if (plane == 0)
+            switch (plane)
             {
-                if (rotation == 0)
-                    return new AreaVolumePointConfiguration (c.corner0, c.corner1, c.corner2, c.corner3, c.corner4, c.corner5, c.corner6, c.corner7);
-                else if (rotation == 1)
-                    return new AreaVolumePointConfiguration (c.corner3, c.corner0, c.corner1, c.corner2, c.corner7, c.corner4, c.corner5, c.corner6);
-                else if (rotation == 2)
-                    return new AreaVolumePointConfiguration (c.corner2, c.corner3, c.corner0, c.corner1, c.corner6, c.corner7, c.corner4, c.corner5);
-                else
-                    return new AreaVolumePointConfiguration (c.corner1, c.corner2, c.corner3, c.corner0, c.corner5, c.corner6, c.corner7, c.corner4);
-            }
-            // Vertical plane A
-            else if (plane == 1)
-            {
-                if (rotation == 0)
-                    return new AreaVolumePointConfiguration (c.corner3, c.corner2, c.corner6, c.corner7, c.corner0, c.corner1, c.corner5, c.corner4);
-                else if (rotation == 1)
-                    return new AreaVolumePointConfiguration (c.corner2, c.corner1, c.corner5, c.corner6, c.corner3, c.corner0, c.corner4, c.corner7);
-                else if (rotation == 2)
-                    return new AreaVolumePointConfiguration (c.corner1, c.corner0, c.corner4, c.corner5, c.corner2, c.corner3, c.corner7, c.corner6);
-                else
-                    return new AreaVolumePointConfiguration (c.corner0, c.corner3, c.corner7, c.corner4, c.corner1, c.corner2, c.corner6, c.corner5);
-            }
-            // Vertical plane B
-            else if (plane == 2)
-            {
-                if (rotation == 0)
-                    return new AreaVolumePointConfiguration (c.corner4, c.corner0, c.corner3, c.corner7, c.corner5, c.corner1, c.corner2, c.corner6);
-                else if (rotation == 1)
-                    return new AreaVolumePointConfiguration (c.corner7, c.corner3, c.corner2, c.corner6, c.corner4, c.corner0, c.corner1, c.corner5);
-                else if (rotation == 2)
-                    return new AreaVolumePointConfiguration (c.corner6, c.corner2, c.corner1, c.corner5, c.corner7, c.corner3, c.corner0, c.corner4);
-                else
-                    return new AreaVolumePointConfiguration (c.corner5, c.corner1, c.corner0, c.corner4, c.corner6, c.corner2, c.corner3, c.corner7);
-            }
-            // Vertical plane C
-            else if (plane == 3)
-            {
-                if (rotation == 0)
-                    return new AreaVolumePointConfiguration (c.corner4, c.corner5, c.corner1, c.corner0, c.corner7, c.corner6, c.corner2, c.corner3);
-                else if (rotation == 1)
-                    return new AreaVolumePointConfiguration (c.corner7, c.corner4, c.corner0, c.corner3, c.corner6, c.corner5, c.corner1, c.corner2);
-                else if (rotation == 2)
-                    return new AreaVolumePointConfiguration (c.corner6, c.corner7, c.corner3, c.corner2, c.corner5, c.corner4, c.corner0, c.corner1);
-                else
-                    return new AreaVolumePointConfiguration (c.corner5, c.corner6, c.corner2, c.corner1, c.corner4, c.corner7, c.corner3, c.corner0);
-            }
-            // Vertical plane D
-            else if (plane == 4)
-            {
-                if (rotation == 0)
-                    return new AreaVolumePointConfiguration (c.corner1, c.corner5, c.corner6, c.corner2, c.corner0, c.corner4, c.corner7, c.corner3);
-                else if (rotation == 1)
-                    return new AreaVolumePointConfiguration (c.corner0, c.corner4, c.corner5, c.corner1, c.corner3, c.corner7, c.corner6, c.corner2);
-                else if (rotation == 2)
-                    return new AreaVolumePointConfiguration (c.corner3, c.corner7, c.corner4, c.corner0, c.corner2, c.corner6, c.corner5, c.corner1);
-                else
-                    return new AreaVolumePointConfiguration (c.corner2, c.corner6, c.corner7, c.corner3, c.corner1, c.corner5, c.corner4, c.corner0);
-            }
-            // Upside down plane
-            else
-            {
-                if (rotation == 0)
-                    return new AreaVolumePointConfiguration (c.corner7, c.corner6, c.corner5, c.corner4, c.corner3, c.corner2, c.corner1, c.corner0);
-                else if (rotation == 1)
-                    return new AreaVolumePointConfiguration (c.corner6, c.corner5, c.corner4, c.corner7, c.corner2, c.corner1, c.corner0, c.corner3);
-                else if (rotation == 2)
-                    return new AreaVolumePointConfiguration (c.corner5, c.corner4, c.corner7, c.corner6, c.corner1, c.corner0, c.corner3, c.corner2);
-                else
-                    return new AreaVolumePointConfiguration (c.corner4, c.corner7, c.corner6, c.corner5, c.corner0, c.corner3, c.corner2, c.corner1);
+                // Horizontal plane
+                case 0:
+                    switch (rotation)
+                    {
+                        case 0:
+                            return new AreaVolumePointConfiguration (c.corner0, c.corner1, c.corner2, c.corner3, c.corner4, c.corner5, c.corner6, c.corner7);
+                        case 1:
+                            return new AreaVolumePointConfiguration (c.corner3, c.corner0, c.corner1, c.corner2, c.corner7, c.corner4, c.corner5, c.corner6);
+                        case 2:
+                            return new AreaVolumePointConfiguration (c.corner2, c.corner3, c.corner0, c.corner1, c.corner6, c.corner7, c.corner4, c.corner5);
+                        default:
+                            return new AreaVolumePointConfiguration (c.corner1, c.corner2, c.corner3, c.corner0, c.corner5, c.corner6, c.corner7, c.corner4);
+                    }
+                    break;
+                // Vertical plane A
+                case 1:
+                    switch (rotation)
+                    {
+                        case 0:
+                            return new AreaVolumePointConfiguration (c.corner3, c.corner2, c.corner6, c.corner7, c.corner0, c.corner1, c.corner5, c.corner4);
+                        case 1:
+                            return new AreaVolumePointConfiguration (c.corner2, c.corner1, c.corner5, c.corner6, c.corner3, c.corner0, c.corner4, c.corner7);
+                        case 2:
+                            return new AreaVolumePointConfiguration (c.corner1, c.corner0, c.corner4, c.corner5, c.corner2, c.corner3, c.corner7, c.corner6);
+                        default:
+                            return new AreaVolumePointConfiguration (c.corner0, c.corner3, c.corner7, c.corner4, c.corner1, c.corner2, c.corner6, c.corner5);
+                    }
+                    break;
+                // Vertical plane B
+                case 2:
+                    switch (rotation)
+                    {
+                        case 0:
+                            return new AreaVolumePointConfiguration (c.corner4, c.corner0, c.corner3, c.corner7, c.corner5, c.corner1, c.corner2, c.corner6);
+                        case 1:
+                            return new AreaVolumePointConfiguration (c.corner7, c.corner3, c.corner2, c.corner6, c.corner4, c.corner0, c.corner1, c.corner5);
+                        case 2:
+                            return new AreaVolumePointConfiguration (c.corner6, c.corner2, c.corner1, c.corner5, c.corner7, c.corner3, c.corner0, c.corner4);
+                        default:
+                            return new AreaVolumePointConfiguration (c.corner5, c.corner1, c.corner0, c.corner4, c.corner6, c.corner2, c.corner3, c.corner7);
+                    }
+                    break;
+                // Vertical plane C
+                case 3:
+                    switch (rotation)
+                    {
+                        case 0:
+                            return new AreaVolumePointConfiguration (c.corner4, c.corner5, c.corner1, c.corner0, c.corner7, c.corner6, c.corner2, c.corner3);
+                        case 1:
+                            return new AreaVolumePointConfiguration (c.corner7, c.corner4, c.corner0, c.corner3, c.corner6, c.corner5, c.corner1, c.corner2);
+                        case 2:
+                            return new AreaVolumePointConfiguration (c.corner6, c.corner7, c.corner3, c.corner2, c.corner5, c.corner4, c.corner0, c.corner1);
+                        default:
+                            return new AreaVolumePointConfiguration (c.corner5, c.corner6, c.corner2, c.corner1, c.corner4, c.corner7, c.corner3, c.corner0);
+                    }
+                    break;
+                // Vertical plane D
+                case 4:
+                    switch (rotation)
+                    {
+                        case 0:
+                            return new AreaVolumePointConfiguration (c.corner1, c.corner5, c.corner6, c.corner2, c.corner0, c.corner4, c.corner7, c.corner3);
+                        case 1:
+                            return new AreaVolumePointConfiguration (c.corner0, c.corner4, c.corner5, c.corner1, c.corner3, c.corner7, c.corner6, c.corner2);
+                        case 2:
+                            return new AreaVolumePointConfiguration (c.corner3, c.corner7, c.corner4, c.corner0, c.corner2, c.corner6, c.corner5, c.corner1);
+                        default:
+                            return new AreaVolumePointConfiguration (c.corner2, c.corner6, c.corner7, c.corner3, c.corner1, c.corner5, c.corner4, c.corner0);
+                    }
+                    break;
+                // Upside down plane
+                default:
+                    switch (rotation)
+                    {
+                        case 0:
+                            return new AreaVolumePointConfiguration (c.corner7, c.corner6, c.corner5, c.corner4, c.corner3, c.corner2, c.corner1, c.corner0);
+                        case 1:
+                            return new AreaVolumePointConfiguration (c.corner6, c.corner5, c.corner4, c.corner7, c.corner2, c.corner1, c.corner0, c.corner3);
+                        case 2:
+                            return new AreaVolumePointConfiguration (c.corner5, c.corner4, c.corner7, c.corner6, c.corner1, c.corner0, c.corner3, c.corner2);
+                        default:
+                            return new AreaVolumePointConfiguration (c.corner4, c.corner7, c.corner6, c.corner5, c.corner0, c.corner3, c.corner2, c.corner1);
+                    }
+                    break;
             }
         }
 
@@ -333,9 +264,7 @@ namespace Area
 
             if (spotAIsSuitable && spotBIsSuitable && spotCIsSuitable && spotDIsSuitable)
                 return pointStart.pointsWithSurroundingSpots[0];
-
-            else
-                return null;
+            return null;
         }
 
         private static bool ValidatePointForRemains (AreaVolumePoint point)
@@ -359,10 +288,10 @@ namespace Area
         {
             AreaVolumePoint result = null;
 
-            int index = AreaUtility.GetIndexFromWorldPosition (positionStart, Vector3.zero, bounds);
+            var index = AreaUtility.GetIndexFromWorldPosition (positionStart, Vector3.zero, bounds);
             if (index.IsValidIndex (points))
             {
-                AreaVolumePoint closestPointToStart = points[index];
+                var closestPointToStart = points[index];
                 result = GetRubblePointBelow (closestPointToStart, 0);
             }
 
@@ -374,7 +303,7 @@ namespace Area
             AreaVolumePoint result = null;
             if (pointStart.pointsInSpot != null)
             {
-                AreaVolumePoint pointBelow = pointStart.pointsInSpot[4];
+                var pointBelow = pointStart.pointsInSpot[4];
                 if (pointBelow != null)
                 {
                     /*
@@ -413,7 +342,7 @@ namespace Area
             }
         }
 
-        public static int[] configurationIndexRemapping = new int[] { 0, 1, 3, 2, 4, 5, 7, 6 };
+        public static readonly int[] configurationIndexRemapping = new int[] { 0, 1, 3, 2, 4, 5, 7, 6 };
 
         public static Vector3 GetPropOffsetAsVector (AreaPropPrototypeData prototype, float offsetX, float offsetZ, int rotation, Quaternion rootRotation)
         {

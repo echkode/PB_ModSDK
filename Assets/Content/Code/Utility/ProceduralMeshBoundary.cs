@@ -22,18 +22,18 @@ public class ProceduralMeshBoundary : MonoBehaviour
 
     public int outerSize = 30;
     public int horizonSize = 30;
-    
+
     public int subdX = 10;
     public int subdY = 10;
 
     public List<QuadInfo> quads = new List<QuadInfo> ();
-    
+
     [NonSerialized]
     private List<QuadInfo> quadsFromArea = new List<QuadInfo> ();
-    
+
     [NonSerialized]
     private int[,] heightfield;
-    
+
     [NonSerialized]
     private int[,] heightfieldScaled;
 
@@ -88,22 +88,22 @@ public class ProceduralMeshBoundary : MonoBehaviour
     public void RebuildFromArea ()
     {
         quadsFromArea.Clear ();
-        
+
         if (am == null || am.points.Count < 8)
         {
             Debug.LogWarning ($"Failed to build boundary mesh for area");
             return;
         }
-        
+
         int size = am.boundsFull.x * am.boundsFull.z;
         int sizeX = am.boundsFull.x - 1;
         int sizeY = am.boundsFull.y - 1;
         int sizeZ = am.boundsFull.z - 1;
-        
+
         int heightfieldLength = am.boundsFull.x * am.boundsFull.z;
         heightfield = new int[am.boundsFull.x, am.boundsFull.z];
         heightfieldScaled = new int[am.boundsFull.x, am.boundsFull.z];
-        
+
         for (int i = 0; i < heightfieldLength; ++i)
         {
             var point = am.points[i];
@@ -115,7 +115,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
 
             int iteration = 0;
             bool emptyFound = false;
-            
+
             while (true)
             {
                 if (point.pointState != AreaVolumePointState.Empty)
@@ -135,14 +135,14 @@ public class ProceduralMeshBoundary : MonoBehaviour
             }
 
             heightfield[point.pointPositionIndex.x, point.pointPositionIndex.z] = -point.pointPositionIndex.y;
-            heightfieldScaled[point.pointPositionIndex.x, point.pointPositionIndex.z] = -point.pointPositionIndex.y * TilesetUtility.blockAssetSize;
+            heightfieldScaled[point.pointPositionIndex.x, point.pointPositionIndex.z] = -point.pointPositionIndex.y * Mathf.RoundToInt (TilesetUtility.blockAssetSize);
         }
 
         float sizeXScaled = sizeX * TilesetUtility.blockAssetSize;
         float sizeYScaled = sizeY * TilesetUtility.blockAssetSize;
         float sizeZScaled = sizeZ * TilesetUtility.blockAssetSize;
         float outerSizeNeg = -outerSize;
-        
+
         float bottomDepth = -(sizeY + 1) * TilesetUtility.blockAssetSize;
         float bottomOffset = 2f * TilesetUtility.blockAssetSize;
 
@@ -153,7 +153,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
         float heightOuterAverage = (heightXNegZNeg + heightXPosZNeg + heightXNegZPos + heightXPosZPos) * 0.25f; // (i % 2) * 6f
 
         // Corners
-        
+
         quadsFromArea.Add (new QuadInfo
         {
             a = new Vector3 (outerSizeNeg, heightOuterAverage, outerSizeNeg),
@@ -161,8 +161,8 @@ public class ProceduralMeshBoundary : MonoBehaviour
             c = new Vector3 (outerSizeNeg, heightOuterAverage, 0f),
             d = new Vector3 (0f, heightXNegZNeg, 0f)
         });
-        
-        
+
+
         quadsFromArea.Add (new QuadInfo
         {
             a = new Vector3 (sizeXScaled, heightOuterAverage, outerSizeNeg),
@@ -170,8 +170,8 @@ public class ProceduralMeshBoundary : MonoBehaviour
             c = new Vector3 (sizeXScaled, heightXPosZNeg, 0f),
             d = new Vector3 (sizeXScaled + outerSize, heightOuterAverage, 0f)
         });
-        
-        
+
+
         quadsFromArea.Add (new QuadInfo
         {
             a = new Vector3 (outerSizeNeg, heightOuterAverage, sizeZScaled),
@@ -179,8 +179,8 @@ public class ProceduralMeshBoundary : MonoBehaviour
             c = new Vector3 (outerSizeNeg, heightOuterAverage, sizeZScaled + outerSize),
             d = new Vector3 (0f, heightOuterAverage, sizeZScaled + outerSize)
         });
-        
-        
+
+
         quadsFromArea.Add (new QuadInfo
         {
             a = new Vector3 (sizeXScaled, heightXPosZPos, sizeZScaled),
@@ -190,99 +190,99 @@ public class ProceduralMeshBoundary : MonoBehaviour
         });
 
         // Outer strips
-        
-        AddStripX 
-        (
-            sizeX, 
-            sizeXScaled, 
-            0, 
-            0f, 
-            heightOuterAverage, 
-            false, 
-            outerSize
-        );
-        
-        AddStripX 
+
+        AddStripX
         (
             sizeX,
-            sizeXScaled, 
-            sizeZ, 
-            sizeZScaled, 
-            heightOuterAverage, 
-            true, 
+            sizeXScaled,
+            0,
+            0f,
+            heightOuterAverage,
+            false,
             outerSize
         );
-        
-        AddStripZ 
+
+        AddStripX
         (
-            sizeZ, 
-            sizeZScaled, 
-            0, 
-            0f, 
-            heightOuterAverage, 
-            false, 
+            sizeX,
+            sizeXScaled,
+            sizeZ,
+            sizeZScaled,
+            heightOuterAverage,
+            true,
             outerSize
         );
-        
+
         AddStripZ
         (
             sizeZ,
-            sizeZScaled, 
-            sizeX, 
-            sizeXScaled, 
-            heightOuterAverage, 
-            true, 
+            sizeZScaled,
+            0,
+            0f,
+            heightOuterAverage,
+            false,
             outerSize
         );
-        
+
+        AddStripZ
+        (
+            sizeZ,
+            sizeZScaled,
+            sizeX,
+            sizeXScaled,
+            heightOuterAverage,
+            true,
+            outerSize
+        );
+
         // Inner strips
-        
-        AddStripX 
-        (
-            sizeX, 
-            sizeXScaled, 
-            0, 
-            0f, 
-            bottomDepth, 
-            true, 
-            bottomOffset
-        );
-        
-        AddStripX 
+
+        AddStripX
         (
             sizeX,
-            sizeXScaled, 
-            sizeZ, 
-            sizeZScaled, 
-            bottomDepth, 
-            false, 
+            sizeXScaled,
+            0,
+            0f,
+            bottomDepth,
+            true,
             bottomOffset
         );
-        
-        AddStripZ 
+
+        AddStripX
         (
-            sizeZ, 
-            sizeZScaled, 
-            0, 
-            0f, 
-            bottomDepth, 
-            true, 
+            sizeX,
+            sizeXScaled,
+            sizeZ,
+            sizeZScaled,
+            bottomDepth,
+            false,
             bottomOffset
         );
-        
+
         AddStripZ
         (
             sizeZ,
-            sizeZScaled, 
-            sizeX, 
-            sizeXScaled, 
-            bottomDepth, 
-            false, 
+            sizeZScaled,
+            0,
+            0f,
+            bottomDepth,
+            true,
             bottomOffset
         );
-        
+
+        AddStripZ
+        (
+            sizeZ,
+            sizeZScaled,
+            sizeX,
+            sizeXScaled,
+            bottomDepth,
+            false,
+            bottomOffset
+        );
+
         // Bottom
-        
+
         quadsFromArea.Add (new QuadInfo
         {
             a = new Vector3 (0f, bottomDepth, 0f),
@@ -290,9 +290,9 @@ public class ProceduralMeshBoundary : MonoBehaviour
             c = new Vector3 (0f, bottomDepth, sizeZScaled),
             d = new Vector3 (sizeXScaled, bottomDepth, sizeZScaled),
         });
-        
+
         // Outer ring
-        
+
         // 45 x+ z+
         // 135 x+ z-
         // -45 x- z+
@@ -312,7 +312,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
         var horizonXPosZNeg = cornerXPosZNeg + dirXPosZNeg * horizonSize;
         var horizonXNegZPos = cornerXNegZPos + dirXNegZPos * horizonSize;
         var horizonXPosZPos = cornerXPosZPos + dirXPosZPos * horizonSize;
-        
+
         // Z-
         quadsFromArea.Add (new QuadInfo
         {
@@ -321,7 +321,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
             c = cornerXNegZNeg,
             d = cornerXPosZNeg
         });
-        
+
         // Z+
         quadsFromArea.Add (new QuadInfo
         {
@@ -330,7 +330,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
             c = horizonXNegZPos,
             d = horizonXPosZPos
         });
-        
+
         // X-
         quadsFromArea.Add (new QuadInfo
         {
@@ -339,7 +339,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
             c = horizonXNegZPos,
             d = cornerXNegZPos
         });
-        
+
         // X+
         quadsFromArea.Add (new QuadInfo
         {
@@ -348,12 +348,12 @@ public class ProceduralMeshBoundary : MonoBehaviour
             c = cornerXPosZPos,
             d = horizonXPosZPos
         });
-        
+
         // Finalize
-        
+
         RebuildFromList (quadsFromArea);
     }
-    
+
     private void AddStripX (int sizeX, float sizeXScaled, int heightIndexOffsetZ, float positionOffsetZ, float heightOuterAverage, bool otherAxisPos, float outerSize)
     {
         for (int i = 0; i < sizeX; ++i)
@@ -364,7 +364,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
 
             float xNeg = factorXNeg * sizeXScaled;
             float xPos = factorXPos * sizeXScaled;
-            
+
             float heightXNeg = heightfieldScaled[i, heightIndexOffsetZ];
             float heightXPos = heightfieldScaled[iNext, heightIndexOffsetZ];
 
@@ -374,7 +374,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
                 var localXPosZNeg = new Vector3 (xPos, heightXPos, positionOffsetZ);
                 var localXNegZPos = new Vector3 (xNeg, heightOuterAverage, positionOffsetZ + outerSize);
                 var localXPosZPos = new Vector3 (xPos, heightOuterAverage, positionOffsetZ + outerSize);
-            
+
                 quadsFromArea.Add (new QuadInfo
                 {
                     a = localXNegZNeg,
@@ -389,7 +389,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
                 var localXPosZNeg = new Vector3 (xPos, heightOuterAverage, positionOffsetZ - outerSize);
                 var localXNegZPos = new Vector3 (xNeg, heightXNeg, positionOffsetZ);
                 var localXPosZPos = new Vector3 (xPos, heightXPos, positionOffsetZ);
-            
+
                 quadsFromArea.Add (new QuadInfo
                 {
                     a = localXNegZNeg,
@@ -400,7 +400,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
             }
         }
     }
-    
+
     private void AddStripZ (int sizeZ, float sizeZScaled, int heightIndexOffsetX, float positionOffsetX, float heightOuterAverage, bool otherAxisPos, float outerSize)
     {
         for (int i = 0; i < sizeZ; ++i)
@@ -411,7 +411,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
 
             float zNeg = factorZNeg * sizeZScaled;
             float zPos = factorZPos * sizeZScaled;
-            
+
             float heightZNeg = heightfieldScaled[heightIndexOffsetX, i];
             float heightZPos = heightfieldScaled[heightIndexOffsetX, iNext];
 
@@ -421,7 +421,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
                 var localXPosZNeg = new Vector3 (positionOffsetX + outerSize, heightOuterAverage, zNeg);
                 var localXNegZPos = new Vector3 (positionOffsetX, heightZPos, zPos);
                 var localXPosZPos = new Vector3 (positionOffsetX + outerSize, heightOuterAverage, zPos);
-            
+
                 quadsFromArea.Add (new QuadInfo
                 {
                     a = localXNegZNeg,
@@ -436,7 +436,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
                 var localXPosZNeg = new Vector3 (positionOffsetX, heightZNeg, zNeg);
                 var localXNegZPos = new Vector3 (positionOffsetX - outerSize, heightOuterAverage, zPos);
                 var localXPosZPos = new Vector3 (positionOffsetX, heightZPos, zPos);
-            
+
                 quadsFromArea.Add (new QuadInfo
                 {
                     a = localXNegZNeg,
@@ -456,7 +456,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
             Debug.LogWarning ($"No custom quad data available");
             return;
         }
-        
+
         RebuildFromList (quads);
     }
 
@@ -483,7 +483,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
             mf.sharedMesh = mesh;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
-        
+
         int vertexCount = quadsUsed.Count * 4;
         int triangleCount = quadsUsed.Count * 6;
 
@@ -503,7 +503,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
             var quad = quadsUsed[i];
             AddQuad (vertices, triangles, quad, ref vertexIndex, ref triangleIndex);
         }
-        
+
         Debug.Log ($"Quads: {quadsUsed.Count} | Vertex count: {vertexCount} | Triangle index count: {triangleCount}");
 
         mesh.Clear ();
@@ -513,7 +513,7 @@ public class ProceduralMeshBoundary : MonoBehaviour
         mesh.uv = uv;
         mesh.uv2 = uv2;
         mesh.colors = colors;
-        
+
         mesh.RecalculateNormals ();
         normals = mesh.normals;
     }
@@ -524,15 +524,15 @@ public class ProceduralMeshBoundary : MonoBehaviour
         vertices[vertexIndex + 1] = quad.b;
         vertices[vertexIndex + 2] = quad.c;
         vertices[vertexIndex + 3] = quad.d;
-                
+
         triangles[triangleIndex] = vertexIndex;
         triangles[triangleIndex + 1] = vertexIndex + 2;
         triangles[triangleIndex + 2] = vertexIndex + 3;
-            
+
         triangles[triangleIndex + 3] = vertexIndex;
         triangles[triangleIndex + 4] = vertexIndex + 3;
         triangles[triangleIndex + 5] = vertexIndex + 1;
-        
+
         vertexIndex += 4;
         triangleIndex += 6;
     }

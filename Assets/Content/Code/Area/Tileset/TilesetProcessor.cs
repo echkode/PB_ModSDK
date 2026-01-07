@@ -45,22 +45,22 @@ namespace Area
 
             [FoldoutGroup (fgOther, false)]
             public Material materialFallback;
-            
+
             [FoldoutGroup (fgOther)]
             public MaterialSerializationHelper materialHelper;
-            
+
             [ListDrawerSettings (DefaultExpandedState = false, ShowPaging = false)]
             public List<string> materialOrder = new List<string> ();
-            
+
             [FoldoutGroup (fgOther)]
             public Transform holderRootSplit;
-            
+
             [FoldoutGroup (fgOther)]
             public Transform holderBlocksSplit;
 
             [FoldoutGroup (fgOther)]
             public Transform holderRootMerged;
-            
+
             [FoldoutGroup (fgOther)]
             public Transform holderBlocksMerged;
         }
@@ -190,7 +190,7 @@ namespace Area
             ResourceDatabaseManager.RebuildDatabase ();
         }
 
-        
+
 
 
         [Button ("Find material replacements", ButtonSizes.Medium)]
@@ -236,7 +236,7 @@ namespace Area
                 Debug.Log ("Successfully found a replacement: " + material.name + " with texture filter " + textureName);
             }
 
-            materialReplacements.Sort (delegate (AssetProcessorMaterialReplacement i1, AssetProcessorMaterialReplacement i2) 
+            materialReplacements.Sort (delegate (AssetProcessorMaterialReplacement i1, AssetProcessorMaterialReplacement i2)
             { return i1.textureName.CompareTo (i2.textureName); });
         }
 
@@ -358,7 +358,7 @@ namespace Area
 
                 if (!useBlocks)
                     continue;
-                
+
                 var holderRoot = new GameObject (tileset.name).transform;
                 tileset.holderRootSplit = holderRoot;
                 holderRoot.parent = GetHolderTilesetsSplit ();
@@ -391,12 +391,12 @@ namespace Area
                         }
 
                         // Weed out bad names
-                        if 
+                        if
                         (
-                            blockNameSplit.Length < 3 || 
-                            blockNameSplit[0].Length != 8 || 
-                            !int.TryParse (blockNameSplit[0], out int parsedConfiguration) || 
-                            !int.TryParse (blockNameSplit[1], out int parsedGroup) || 
+                            blockNameSplit.Length < 3 ||
+                            blockNameSplit[0].Length != 8 ||
+                            !int.TryParse (blockNameSplit[0], out int parsedConfiguration) ||
+                            !int.TryParse (blockNameSplit[1], out int parsedGroup) ||
                             !int.TryParse (blockNameSplit[2], out int parsedSubtype)
                         )
                         {
@@ -419,7 +419,7 @@ namespace Area
                         // If index is -1, that means we never found a match (which is pretty weird and shouldn't happen when checking proper template-referenced models against a proper configuration list)
                         if (configurationIndex == -1)
                         {
-                            Debug.LogWarning ("Tileset " + t + ": " + tileset.name + " | Skipping the block " + i + " (" + block.name + ") due to configuration " + 
+                            Debug.LogWarning ("Tileset " + t + ": " + tileset.name + " | Skipping the block " + i + " (" + block.name + ") due to configuration " +
                                 parsedConfiguration + " (" + configurationByte + ") not being found");
                             continue;
                         }
@@ -444,7 +444,7 @@ namespace Area
                         var blockEnvelopeName = blockNameSplit[0] + "_" + blockNameSplit[1] + "_" + blockNameSplit[2];
                         if (blockNameSplit.Length == 4)
                             blockEnvelopeName += $"_{blockNameSplit[3]}";
-                        
+
                         var blockEnvelope = new GameObject (blockEnvelopeName).transform;
                         blockEnvelope.parent = tileset.holderBlocksSplit;
                         blockEnvelope.SetLocalTransformationToZero ();
@@ -454,7 +454,7 @@ namespace Area
                         blockCopy.parent = blockEnvelope.transform;
                         blockCopy.SetLocalTransformationToZero ();
                         blockCopy.localRotation = Quaternion.Euler (0f, 180f, 0f);
-                        
+
                         if (cellPrefab != null)
                         {
                             GameObject cellObject = Instantiate (cellPrefab);
@@ -472,7 +472,7 @@ namespace Area
                     {
                         if (!tilesetCompletenessChecklist[j])
                         {
-                            Debug.LogWarning ("Configuration index " + j + ", linked to byte " + configurationBytes[j] + ", which can be represented as " + TilesetUtility.GetStringFromConfiguration (TilesetUtility.GetConfigurationFromByte (configurationBytes[j])) + " is missing");
+                            Debug.LogWarning ("Configuration index " + j + ", linked to byte " + configurationBytes[j] + ", which can be represented as " + TilesetUtility.GetStringFromConfiguration (configurationBytes[j]) + " is missing");
                             missingConfigurationCount += 1;
                             valid = false;
                         }
@@ -571,13 +571,13 @@ namespace Area
         private void GenerateSharedMaterials ()
         {
             tilesetCurrent = null;
-            
+
             for (int t = 0; t < tilesets.Count; ++t)
             {
                 var tileset = tilesets[t];
                 if (tileset.holderRootSplit == null || !tileset.loadBlocks)
                     continue;
-                
+
                 Debug.Log ($"Generating shared materials for tileset {tileset.name}...");
                 tilesetCurrent = tileset;
 
@@ -614,17 +614,17 @@ namespace Area
                                 Debug.LogError ($"Shared material {m} on filter {f} ({filter.gameObject.name}) has no AH texture (_MainTex), ineligible for array", filter.gameObject);
                                 continue;
                             }
-                            
+
                             var textureMSEO = sharedMaterial.GetTexture ("_MSEO") as Texture2D;
                             if (textureMSEO == null)
                             {
                                 Debug.LogError ($"Shared material {m} on filter {f} ({filter.gameObject.name}) has no MSEO texture, ineligible for array", filter.gameObject);
                                 continue;
                             }
-                            
+
                             if (!materialsForArrayCollapse.Contains (sharedMaterial))
                             {
-                                Debug.Log ("Tileset " + t + ": " + tileset.name + " | Material " + sharedMaterial.name + 
+                                Debug.Log ("Tileset " + t + ": " + tileset.name + " | Material " + sharedMaterial.name +
                                     " has array-compatible shader, adding it | Materials collected so far: " + materialsForArrayCollapse.Count);
                                 materialsForArrayCollapse.Add (sharedMaterial);
                             }
@@ -741,7 +741,7 @@ namespace Area
 
                 Debug.Log ("Successfully created a combined material from " + materialsForArrayCollapse.Count + " source materials | Helper data generated", tileset.materialHelper);
             }
-            
+
             tilesetCurrent = null;
         }
 
@@ -752,7 +752,7 @@ namespace Area
                 int xIndexCustom = tilesetCurrent.materialOrder.IndexOf (x.name);
                 if (xIndexCustom < 0)
                     xIndexCustom = 10000;
-                
+
                 int yIndexCustom = tilesetCurrent.materialOrder.IndexOf (y.name);
                 if (yIndexCustom < 0)
                     yIndexCustom = 10000;
@@ -977,7 +977,7 @@ namespace Area
         private void SaveObjectsInHolder (Transform holderMerged, string tilesetName, string subfolderName, bool multiblockMode)
         {
             AssetDatabase.StartAssetEditing ();
-        
+
             Debug.Log ("Saving assets from holder " + holderMerged.name + " | Child count: " + holderMerged.childCount);
 
             string progressBarHeader = "Saving " + subfolderName;
@@ -994,7 +994,7 @@ namespace Area
                 EditorUtility.DisplayProgressBar (progressBarHeader, progressDesc, progressBarPercentage);
                 SaveObject (child, pathShared);
             }
-            
+
             AssetDatabase.StopAssetEditing ();
 
             //exportProgress = 0f;
@@ -1021,7 +1021,7 @@ namespace Area
 
 
         /*
-        
+
 
         private Vector3Int RoundToGrid (Transform localParent, Vector3 localPosition)
         {

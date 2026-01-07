@@ -17,18 +17,18 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
         SizeZWidth = 2,
         SizeYHeight = 3
     }
-    
+
     private VolumeEditingMode volumeEditingMode = VolumeEditingMode.PositionY;
 
     private Color colorUnusedWaypoint = new Color (0.5f, 0.55f, 0.6f);
     private Color colorMainWaypoint = new Color (0.7f, 0.8f, 1f);
-    
+
     private Color colorUnused = Color.gray;
     private Color colorMain = Color.white;
     private Color colorEnemy = Color.Lerp (Color.red, Color.white, 0.5f);
     private Color colorFriendly = Color.Lerp (Color.cyan, Color.white, 0.5f);
     private Color colorEmpty = Color.yellow;
-    
+
     private Color colorMainLocation = Color.Lerp (Color.cyan, Color.white, 0.5f);
     private Color colorUnusedLocation = Color.Lerp (Color.cyan, Color.gray, 0.5f);
 
@@ -88,7 +88,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                     break;
             }
         }
-        
+
         bool eventPresent = e.type == EventType.MouseDown;
         bool alt = e.alt;
         bool shift = e.shift;
@@ -98,10 +98,10 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
         {
             if (e.button == 0)
             {
-                buttonPressed = KeyCode.Mouse0; 
+                buttonPressed = KeyCode.Mouse0;
                 // e.Use ();
             }
-            
+
             /*
             if (e.button == 1)
             {
@@ -116,19 +116,19 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
             }
             */
         }
-        
+
         // if (shift || alt)
         //     e.Use ();
-        
+
         var worldRay = HandleUtility.GUIPointToWorldRay (e.mousePosition);
         bool inputCheckSuccessful = buttonPressed == KeyCode.Mouse0 && e.type != EventType.Used;
-        
+
         var am = CombatSceneHelper.ins.areaManager;
         var boundsFull = am.boundsFull;
         if (am == null || am.boundsFull == Vector3Int.size0x0x0)
             return;
 
-        var boundsScaled = am.boundsFull * TilesetUtility.blockAssetSize;
+        var boundsScaled = am.boundsFull * Mathf.RoundToInt (TilesetUtility.blockAssetSize);
         var boundsMidY = -boundsScaled.y * 0.5f;
         var bc1 = new Vector3 (0f, boundsMidY, 0f);
         var bc2 = new Vector3 (boundsScaled.x, boundsMidY, 0f);
@@ -147,7 +147,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
             {
                 var spawnGroupKey = kvp.Key;
                 var spawnGroup = kvp.Value;
-                
+
                 if (spawnGroup == null || spawnGroup.points == null)
                     continue;
 
@@ -230,7 +230,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
 
                             if (shift)
                                 spawnPoint.SnapToGrid ();
-                            
+
                             spawnGroup.RefreshAveragePosition ();
                         }
 
@@ -240,7 +240,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                             spawnPoint.rotation = new Vector3 (0f, rotation.eulerAngles.y, 0f);
                     }
                 }
-                
+
                 Handles.color = errorInAny ? colorEnemy : colorUnused;
                 Handles.Label (spawnGroup.averagePosition + Vector3.up * 7f, spawnGroupKey.Replace ("perimeter_", "p_"));
             }
@@ -285,20 +285,20 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                     var rot = points.Count > 0 ? points[points.Count - 1].rotation : Vector3.zero;
                     var point = new DataBlockAreaPoint { point = pos, rotation = rot };
                     point.SnapToGrid ();
-                    
+
                     points.Add (point);
                     Repaint ();
                 }
             }
         }
-        
+
         if (area.waypointGroups != null && DataMultiLinkerCombatArea.Presentation.showWaypoints)
         {
             foreach (var kvp in area.waypointGroups)
             {
                 var waypointGroupKey = kvp.Key;
                 var waypointGroup = kvp.Value;
-                
+
                 if (waypointGroup == null || waypointGroup.points == null || waypointGroup.points.Count == 0)
                     continue;
 
@@ -389,7 +389,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                             waypoint.rotation = new Vector3 (0f, rotation.eulerAngles.y, 0f);
                     }
                 }
-                
+
                 Handles.color = errorInAny ? colorEnemy : colorUnused;
                 Handles.Label (waypointGroup.points[waypointGroup.points.Count - 1].point + Vector3.up * 7f, waypointGroupKey.Replace ("perimeter_", "p_"));
             }
@@ -434,23 +434,23 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                     var rot = points.Count > 0 ? points[points.Count - 1].rotation : Vector3.zero;
                     var point = new DataBlockAreaPoint { point = pos, rotation = rot };
                     point.SnapToGrid ();
-                    
+
                     points.Add (point);
                     Repaint ();
                 }
             }
         }
-        
+
         if (area.locations != null && DataMultiLinkerCombatArea.Presentation.showLocations)
         {
             foreach (var kvp in area.locations)
             {
                 var locationKey = kvp.Key;
                 var location = kvp.Value;
-                
+
                 if (location == null)
                     continue;
-                
+
                 if (location.data == null)
                     location.data = new DataBlockAreaLocation ();
 
@@ -458,13 +458,13 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                 bool selected = location == DataMultiLinkerCombatArea.selectedLocation;
                 var colorFull = selected ? colorMainLocation : colorUnusedLocation;
                 var colorSemi = colorFull.WithAlpha (0.25f);
-                
+
                 var position = ld.point;
                 var rotationQ = Quaternion.Euler (0f, ld.rotation, 0f);
 
                 Handles.color = colorFull;
                 Handles.DrawLine (position, position + Vector3.up * 5f);
-                
+
                 Handles.Label (position + Vector3.up * 7f, $"{locationKey} (location)\n");
 
                 if (ld.rect)
@@ -475,7 +475,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                     var pos2 = position + new Vector3 (sizeXHalf, 0f, -sizeYHalf);
                     var pos3 = position + new Vector3 (sizeXHalf, 0f, sizeYHalf);
                     var pos4 = position + new Vector3 (-sizeXHalf, 0f, sizeYHalf);
-                    
+
                     Handles.DrawLine (pos1, pos2);
                     Handles.DrawLine (pos2, pos3);
                     Handles.DrawLine (pos3, pos4);
@@ -485,14 +485,14 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                 {
                     var dir = rotationQ * Vector3.forward;
                     var radius = location.data.sizeX;
-                    
+
                     Handles.CircleHandleCap (0, position, circleRotation, radius, EventType.Repaint);
                     Handles.DrawLine (position + dir * radius, position + dir * (radius + 3));
                 }
 
                 Handles.color = colorSemi;
                 var size = HandleUtility.GetHandleSize (position);
-                
+
                 if (Handles.Button (position, Quaternion.identity, size * 0.05f, size * 0.2f, Handles.DotHandleCap))
                 {
                     DataMultiLinkerCombatArea.selectedLocation = location;
@@ -525,7 +525,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                         if (shift)
                             location.SnapToGrid ();
                     }
-                    
+
                     EditorGUI.BeginChangeCheck ();
                     rotationQ = Handles.DoRotationHandle (rotationQ, position);
                     if (EditorGUI.EndChangeCheck ())
@@ -539,7 +539,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                     }
                 }
             }
-            
+
             if (DataMultiLinkerCombatArea.selectedLocation != null && DataMultiLinkerCombatArea.selectedSpawnPoint == null && DataMultiLinkerCombatArea.Presentation.showLocations)
             {
                 if (alt && Physics.Raycast (worldRay, out var hitInfoLocation, 1000, LayerMasks.environmentMask))
@@ -569,13 +569,13 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                         int loops = 0;
                         int locationKeyIndex = 0;
                         string key = null;
-                        
+
                         while (true)
                         {
                             key = $"location_{locationKeyIndex}";
                             if (!area.locations.ContainsKey (key))
                                 break;
-                            
+
                             locationKeyIndex += 1;
                             loops += 1;
 
@@ -585,7 +585,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                                 break;
                             }
                         }
-                        
+
                         if (!string.IsNullOrEmpty (key) && !area.locations.ContainsKey (key))
                         {
                             var location = new DataBlockAreaLocationTagged () { data = new DataBlockAreaLocation { point = pos } };
@@ -598,17 +598,17 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                 }
             }
         }
-        
+
         if (area.fields != null && DataMultiLinkerCombatArea.Presentation.showFields)
         {
             var sourceColorMain = Color.HSVToRGB (0.58f, 0.5f, 0.8f).WithAlpha (0.25f);
             var sourceColorCulled = Color.HSVToRGB (0.65f, 0.4f, 0.6f).WithAlpha (0.025f);
-            
+
             for (int i = 0; i < area.fields.Count; ++i)
             {
                 // var fieldKey = kvp.Key;
                 var field = area.fields[i];
-                
+
                 if (field == null)
                     continue;
 
@@ -616,19 +616,19 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                 bool selected = field == DataMultiLinkerCombatArea.selectedField;
                 var colorFull = selected ? colorMainLocation : colorUnusedLocation;
                 var colorSemi = colorFull.WithAlpha (0.25f);
-                
+
                 var position = field.origin;
                 var rotationQ = Quaternion.Euler (0f, field.rotation, 0f);
 
                 Handles.color = colorFull;
                 Handles.DrawLine (position, position + Vector3.up * 5f);
-                
+
                 Handles.Label (position + Vector3.up * 7f, $"F{i} ({type})\n");
                 DrawField (position, field.size, field.rotation, sourceColorMain, sourceColorCulled);
 
                 Handles.color = colorSemi;
                 var size = HandleUtility.GetHandleSize (position);
-                
+
                 if (Handles.Button (position, Quaternion.identity, size * 0.05f, size * 0.2f, Handles.DotHandleCap))
                 {
                     DataMultiLinkerCombatArea.selectedLocation = null;
@@ -649,7 +649,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                     {
                         field.origin = position;
                     }
-                    
+
                     EditorGUI.BeginChangeCheck ();
                     rotationQ = Handles.DoRotationHandle (rotationQ, position);
                     if (EditorGUI.EndChangeCheck ())
@@ -663,7 +663,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                     }
                 }
             }
-            
+
             if (DataMultiLinkerCombatArea.selectedLocation != null && DataMultiLinkerCombatArea.selectedSpawnPoint == null && DataMultiLinkerCombatArea.Presentation.showLocations)
             {
                 if (alt && Physics.Raycast (worldRay, out var hitInfoLocation, 1000, LayerMasks.environmentMask))
@@ -693,13 +693,13 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                         int loops = 0;
                         int locationKeyIndex = 0;
                         string key = null;
-                        
+
                         while (true)
                         {
                             key = $"location_{locationKeyIndex}";
                             if (!area.locations.ContainsKey (key))
                                 break;
-                            
+
                             locationKeyIndex += 1;
                             loops += 1;
 
@@ -709,7 +709,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                                 break;
                             }
                         }
-                        
+
                         if (!string.IsNullOrEmpty (key) && !area.locations.ContainsKey (key))
                         {
                             var location = new DataBlockAreaLocationTagged () { data = new DataBlockAreaLocation { point = pos } };
@@ -727,9 +727,9 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
         {
             var points = am.points;
             int pointsTotal = am.points.Count;
-            
+
             cubeDescs.Clear ();
-            
+
             foreach (var kvp in area.volumes)
             {
                 var volumeKey = kvp.Key;
@@ -748,7 +748,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                 // Get Position
                 int sourceCornerAIndex = AreaUtility.GetIndexFromInternalPosition (internalPositionA, boundsFull);
                 int sourceCornerBIndex = AreaUtility.GetIndexFromInternalPosition (internalPositionB, boundsFull);
-                
+
                 var sourcePosA = new Vector3 (internalPositionA.x, -internalPositionA.y, internalPositionA.z) * TilesetUtility.blockAssetSize;
                 var sourcePosB = new Vector3 (internalPositionB.x, -internalPositionB.y, internalPositionB.z) * TilesetUtility.blockAssetSize;
 
@@ -757,7 +757,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
 
                 var sourceColorMain = new HSBColor (0.0f, 0.5f, 0.8f, 0.15f).ToColor();
                 var sourceColorCulled = new HSBColor (0.0f, 0.4f, 0.5f, 0.075f).ToColor ();
-                
+
                 if (sourceCornerAIndex != -1 && sourceCornerBIndex != -1)
                 {
                     sourceColorMain = new HSBColor (0.25f, 0.5f, 0.8f, 0.15f).ToColor();
@@ -765,7 +765,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                 }
 
                 DrawVolume (volumeKey, sourcePosA, sourcePosB, sourceColorMain, sourceColorCulled);
-                
+
                 var size = HandleUtility.GetHandleSize (sourcePosA);
                 if (Handles.Button (sourcePosA, Quaternion.identity, size * 0.05f, size * 0.2f, Handles.DotHandleCap))
                 {
@@ -783,7 +783,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
             if (DataMultiLinkerCombatArea.selectedVolume != null)
             {
                 var vd = DataMultiLinkerCombatArea.selectedVolume.data;
-            
+
                 if (alt)
                 {
                     if (Physics.Raycast (worldRay, out var hitInfo, 1000, LayerMasks.environmentMask))
@@ -791,7 +791,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                         Handles.color = Color.white.WithAlpha (1f);
                         Handles.DrawLine (hitInfo.point, hitInfo.point + hitInfo.normal * 3f);
                         Handles.CubeHandleCap (0, hitInfo.point, Quaternion.identity, 0.5f, EventType.Repaint);
-                        
+
                         var hitPositionShiftedDeeper = hitInfo.point - hitInfo.normal * 0.5f;
                         int index = AreaUtility.GetIndexFromWorldPosition (hitPositionShiftedDeeper, am.GetHolderColliders ().position, am.boundsFull);
                         if (index != -1 && index.IsValidIndex (am.points))
@@ -809,16 +809,16 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                                 // Get Position
                                 int sourceCornerAIndex = AreaUtility.GetIndexFromInternalPosition (internalPositionA, boundsFull);
                                 int sourceCornerBIndex = AreaUtility.GetIndexFromInternalPosition (internalPositionB, boundsFull);
-                
+
                                 var sourcePosA = new Vector3 (internalPositionA.x, -internalPositionA.y, internalPositionA.z) * TilesetUtility.blockAssetSize;
                                 var sourcePosB = new Vector3 (internalPositionB.x, -internalPositionB.y, internalPositionB.z) * TilesetUtility.blockAssetSize;
 
                                 sourcePosA += new Vector3 (-1f, 1f, -1f) * (TilesetUtility.blockAssetSize * 0.51f);
                                 sourcePosB += new Vector3 (1f, -1f, 1f) * (TilesetUtility.blockAssetSize * 0.51f);
-                                
+
                                 var internalPositionA1 = vd.origin;
                                 var internalPositionB1 = vd.origin + vd.size - Vector3Int.size1x1x1;
-                                
+
                                 var cOrigin = new Vector3 (internalPositionA1.x, -internalPositionA1.y, internalPositionA1.z) * TilesetUtility.blockAssetSize;
                                 var cExtent = new Vector3 (internalPositionB1.x, -internalPositionB1.y, internalPositionB1.z) * TilesetUtility.blockAssetSize;
 
@@ -827,7 +827,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
 
                                 var sourceColorMain = new HSBColor (0.0f, 0.5f, 0.8f, 0.15f).ToColor();
                                 var sourceColorCulled = new HSBColor (0.0f, 0.4f, 0.5f, 0.075f).ToColor ();
-                
+
                                 if (sourceCornerAIndex != -1 && sourceCornerBIndex != -1)
                                 {
                                     sourceColorMain = new HSBColor (0.5f, 0.5f, 0.8f, 0.15f).ToColor();
@@ -835,7 +835,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                                 }
 
                                 DrawVolume ("New origin", sourcePosA, sourcePosB, sourceColorMain, sourceColorCulled);
-                                
+
                                 if (eventPresent && buttonPressed == KeyCode.Mouse0)
                                 {
                                     vd.origin = originAdjusted;
@@ -848,7 +848,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                                     var c3 = new Vector3 (cExtent.x, cOrigin.y, cOrigin.z);
                                     var c4 = new Vector3 (cExtent.x, cOrigin.y, cExtent.z);
                                     var up = Vector3.up * 3f;
-                                    
+
                                     DrawArrow (c1, c1 + up, Color.HSVToRGB (0.3f, 0.5f, 1f));
                                     DrawArrow (c2, c2 + up, Color.HSVToRGB (0.3f, 0.5f, 1f));
                                     DrawArrow (c3, c3 + up, Color.HSVToRGB (0.3f, 0.5f, 1f));
@@ -860,7 +860,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                                     var c1b = new Vector3 (cExtent.x, cOrigin.y, cOrigin.z);
                                     var c2a = new Vector3 (cOrigin.x, cOrigin.y, cExtent.z);
                                     var c2b = new Vector3 (cExtent.x, cOrigin.y, cExtent.z);
-                                
+
                                     DrawArrowBidirectional (c1a, c1b, Color.HSVToRGB (0f, 0.5f, 1f));
                                     DrawArrowBidirectional (c2a, c2b, Color.HSVToRGB (0f, 0.5f, 1f));
                                 }
@@ -870,7 +870,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                                     var c1b = new Vector3 (cOrigin.x, cOrigin.y, cExtent.z);
                                     var c2a = new Vector3 (cExtent.x, cOrigin.y, cOrigin.z);
                                     var c2b = new Vector3 (cExtent.x, cOrigin.y, cExtent.z);
-                                    
+
                                     DrawArrowBidirectional (c1a, c1b, Color.HSVToRGB (0.55f, 0.5f, 1f));
                                     DrawArrowBidirectional (c2a, c2b, Color.HSVToRGB (0.55f, 0.5f, 1f));
                                 }
@@ -878,16 +878,16 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                                 {
                                     var c1a = new Vector3 (cOrigin.x, cOrigin.y, cOrigin.z);
                                     var c1b = new Vector3 (cOrigin.x, cExtent.y, cOrigin.z);
-                                    
+
                                     var c2a = new Vector3 (cOrigin.x, cOrigin.y, cExtent.z);
                                     var c2b = new Vector3 (cOrigin.x, cExtent.y, cExtent.z);
-                                    
+
                                     var c3a = new Vector3 (cExtent.x, cOrigin.y, cOrigin.z);
                                     var c3b = new Vector3 (cExtent.x, cExtent.y, cOrigin.z);
-                                    
+
                                     var c4a = new Vector3 (cExtent.x, cOrigin.y, cExtent.z);
                                     var c4b = new Vector3 (cExtent.x, cExtent.y, cExtent.z);
-                                
+
                                     DrawArrowBidirectional (c1a, c1b, Color.HSVToRGB (0.3f, 0.5f, 1f), true);
                                     DrawArrowBidirectional (c2a, c2b, Color.HSVToRGB (0.3f, 0.5f, 1f), true);
                                     DrawArrowBidirectional (c3a, c3b, Color.HSVToRGB (0.3f, 0.5f, 1f), true);
@@ -938,7 +938,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
 
                 Vector3Int boundsLocal = vd.size;
                 int volumeLengthLocal = boundsLocal.x * boundsLocal.y * boundsLocal.z;
-                
+
                 for (int i = volumeLengthLocal - 1; i >= 0; --i)
                 {
                     Vector3Int internalPositionLocal = AreaUtility.GetVolumePositionFromIndex (i, boundsLocal);
@@ -962,25 +962,25 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
                     var gradientInterpolant = (float)internalPositionLocal.y / vd.size.y;
 
                     // Increment count of destroyed points
-                    
+
                     Color colorPoint;
                     if (sourcePoint.pointState == AreaVolumePointState.FullDestroyed)
                         colorPoint = Color.HSVToRGB (Mathf.Lerp (0.05f, 0f, gradientInterpolant), 0.5f, 1f);
                     else
                         colorPoint = Color.HSVToRGB (Mathf.Lerp (0.2f, 0.25f, gradientInterpolant), 0.5f, 1f);
-                    
+
                     cubeDescs.Add (new CubeDesc { origin = sourcePoint.pointPositionLocal, size = 1.4f, color = colorPoint });
                 }
-                
+
                 DrawCubeListSorted (cubeDescs);
             }
         }
 
         if (DataMultiLinkerCombatArea.Presentation.showSpawnGeneration)
         {
-            
+
         }
-        
+
         if (DataMultiLinkerCombatArea.selectedVolume != null && DataMultiLinkerCombatArea.Presentation.showVolumes)
         {
             Handles.BeginGUI ();
@@ -1026,7 +1026,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
     {
         Tools.hidden = true;
     }
- 
+
     void OnDisable()
     {
         Tools.hidden = false;
@@ -1041,14 +1041,14 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
         public Color color;
         public float dist;
     }
-    
+
     private void DrawCubeListSorted (List<CubeDesc> list, bool lighting = true, CompareFunction zTest = CompareFunction.Always, bool fadeUsed = true)
     {
         if (list == null || list.Count == 0)
             return;
-    
+
         var scene = UnityEditor.SceneView.lastActiveSceneView;
-        if (scene == null || scene.camera == null) 
+        if (scene == null || scene.camera == null)
             return;
 
         var c = scene.camera;
@@ -1072,22 +1072,22 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
             list[i] = valueNew;
             if (distMax < valueNew.dist)
                 distMax = valueNew.dist;
-            
+
             if (distMin > valueNew.dist)
                 distMin = valueNew.dist;
         }
 
         if (distMax <= 0f || distMax - distMin <= 0f)
             fadeUsed = false;
-        
+
         var distSpan = distMax - distMin;
-        
+
         list.Sort ((a, b) => b.dist.CompareTo (a.dist));
 
         var hc = Handles.color;
         var l = Handles.lighting;
         var zt = Handles.zTest;
-        
+
         Handles.zTest = zTest;
         Handles.lighting = lighting;
 
@@ -1103,7 +1103,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
             {
                 Handles.color = cubeDesc.color;
             }
-        
+
 
             Handles.CubeHandleCap (0, cubeDesc.origin, Quaternion.identity, cubeDesc.size, EventType.Repaint);
         }
@@ -1112,7 +1112,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
         Handles.lighting = l;
         Handles.zTest = zt;
     }
-    
+
     private void DrawCube (Vector3 origin, float size, Color colorMain, bool lighting = true, CompareFunction zTest = CompareFunction.Always)
     {
         var hc = Handles.color;
@@ -1122,9 +1122,9 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
         Handles.zTest = zTest;
         Handles.lighting = lighting;
         Handles.color = colorMain;
-        
+
         Handles.CubeHandleCap (0, origin, Quaternion.identity, size, EventType.Repaint);
-        
+
         Handles.color = hc;
         Handles.lighting = l;
         Handles.zTest = zt;
@@ -1142,7 +1142,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
         Handles.zTest = CompareFunction.Greater;
         Handles.color = colorCulled;
         Handles.CubeHandleCap (0, origin, Quaternion.identity, size, EventType.Repaint);
-        
+
         Handles.color = hc;
         Handles.zTest = zt;
     }
@@ -1151,33 +1151,33 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
     {
         if (posOrigin == posDestination)
             return;
-        
+
         Vector3 difference = posDestination - posOrigin;
         difference.y = -difference.y;
         Vector3 dir = difference.normalized;
 
         Handles.color = color;
         Handles.DrawLine (posOrigin, posDestination, 2f);
-        
+
         var sizeDestination = HandleUtility.GetHandleSize (posOrigin);
         Handles.ConeHandleCap (0, posDestination, Quaternion.LookRotation (-dir), sizeDestination * 0.2f, Event.current.type);
     }
-    
+
     private void DrawArrowBidirectional (Vector3 posOrigin, Vector3 posDestination, Color color, bool flip = false)
     {
         if (posOrigin == posDestination)
             return;
-        
+
         Vector3 difference = posDestination - posOrigin;
         difference.y = -difference.y;
         Vector3 dir = difference.normalized;
 
         Handles.color = color;
         Handles.DrawLine (posOrigin, posDestination, 2f);
-        
+
         var sizeDestination = HandleUtility.GetHandleSize (posOrigin);
         Handles.ConeHandleCap (0, posDestination, Quaternion.LookRotation (flip ? dir : -dir), sizeDestination * 0.2f, Event.current.type);
-        
+
         var sizeOrigin = HandleUtility.GetHandleSize (posOrigin);
         Handles.ConeHandleCap (0, posOrigin, Quaternion.LookRotation (flip ? -dir : dir), sizeOrigin * 0.2f, Event.current.type);
     }
@@ -1246,7 +1246,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
 
         Handles.Label (center + Vector3.up * 7f, $"{key} (Volume)\n");
     }
-    
+
     private void DrawField (Vector3 origin, Vector3 size, float rotation, Color colorMain, Color colorCulled)
     {
         var hc = Handles.color;
@@ -1254,11 +1254,11 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
 
         var colorMainTransparent = colorMain.WithAlpha (0.15f);
         var colorCulledTransparent = colorCulled.WithAlpha (0.15f);
-        
+
         var rotationQ = Quaternion.Euler (0f, rotation, 0f);
         var sizeHalf = size * 0.5f;
         var offsetLow = new Vector3 (0f, -size.y, 0f);
-        
+
         var posTop1 = origin + rotationQ * new Vector3 (sizeHalf.x, 0f, sizeHalf.z);
         var posTop2 = origin + rotationQ * new Vector3 (-sizeHalf.x, 0f, sizeHalf.z);
         var posTop3 = origin + rotationQ * new Vector3 (-sizeHalf.x, 0f, -sizeHalf.z);
@@ -1276,7 +1276,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
         Handles.DrawLine (posTop2, posLow2);
         Handles.DrawLine (posTop3, posLow3);
         Handles.DrawLine (posTop4, posLow4);
-        
+
         Handles.color = Color.white.WithAlpha (1f);
         Handles.DrawLine (posTop1, posTop2);
         Handles.DrawLine (posTop2, posTop3);
@@ -1296,7 +1296,7 @@ public class DataMultiLinkerCombatAreaInspector : OdinEditor
         transferPreviewVerts[1] = posTop2;
         transferPreviewVerts[2] = posTop3;
         transferPreviewVerts[3] = posTop4;
-        
+
         Handles.zTest = CompareFunction.LessEqual;
         Handles.DrawSolidRectangleWithOutline (transferPreviewVerts, colorMainTransparent, colorMain);
         Handles.zTest = CompareFunction.Greater;

@@ -111,17 +111,21 @@ namespace Area
         public void RecheckDamage ()
         {
             if (!spotPresent)
-                spotHasDamagedPoints = false;
-            else
             {
-                for (int i = 0; i < 8; ++i)
+                spotHasDamagedPoints = false;
+                return;
+            }
+            for (var i = 0; i < pointsInSpot.Length; i += 1)
+            {
+                var neighbourPoint = pointsInSpot[i];
+                if (neighbourPoint == null)
                 {
-                    AreaVolumePoint neighbourPoint = pointsInSpot[i];
-                    if (neighbourPoint != null && neighbourPoint.pointState == AreaVolumePointState.FullDestroyed)
-                    {
-                        spotHasDamagedPoints = true;
-                        break;
-                    }
+                    continue;
+                }
+                if (neighbourPoint.pointState == AreaVolumePointState.FullDestroyed)
+                {
+                    spotHasDamagedPoints = true;
+                    return;
                 }
             }
         }

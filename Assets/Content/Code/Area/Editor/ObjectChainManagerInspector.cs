@@ -512,12 +512,12 @@ public class ObjectChainManagerInspector : OdinEditor
             manager.prefabSelected = ObjectChainManager.prefabSubset.FirstOrDefault ();
     }
 
-    void OnEnable ()
+    protected override void OnEnable ()
     {
         Tools.hidden = true;
     }
- 
-    void OnDisable ()
+    
+    protected override void OnDisable ()
     {
         Tools.hidden = false;
     }
