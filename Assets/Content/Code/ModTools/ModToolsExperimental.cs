@@ -522,6 +522,25 @@ namespace PhantomBrigade.SDK.ModTools
                 EditorUtility.DisplayProgressBar ("Exporting mod", $"Saving config edits...", 0.55f);
                 configEditsTemp.SaveToMod (modData);
             }
+
+            var dirOverrides = new DirectoryInfo (DataPathHelper.GetCombinedCleanPath (pathMod, overridesFolderName));
+            if (dirOverrides.Exists)
+            {
+                if (!dirOverrides.EnumerateFileSystemInfos ().Any ())
+                {
+                    dirOverrides.Delete ();
+                    modData.metadata.includesConfigOverrides = false;
+                    Debug.Log ("Deleted empty ConfigOverrides folder");
+                }
+                else
+                {
+                    modData.metadata.includesConfigOverrides = true;
+                }
+            }
+            else
+            {
+                modData.metadata.includesConfigOverrides = false;
+            }
         }
 
         public static void CopyConfigsFromSDK (DataContainerModData modData)
