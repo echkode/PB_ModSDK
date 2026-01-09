@@ -111,15 +111,15 @@ namespace Area
 
             allTerrain = true;
             var policy = isOpAdd
-                ? AreaSceneHelper.FreeSpacePolicy.LookDownPass
+                ? FreeSpacePolicy.LookDownPass
                 : operation == Operation.Remove
-                    ? AreaSceneHelper.FreeSpacePolicy.SlopePass
-                    : AreaSceneHelper.FreeSpacePolicy.Pass;
-            var pointsToEdit = AreaManager.CollectPointsInBrush (point, AreaManager.editingVolumeBrush);
+                    ? FreeSpacePolicy.SlopePass
+                    : FreeSpacePolicy.Pass;
+            var pointsToEdit = AreaSceneModeHelper.CollectPointsInBrush (point);
             var am = bb.am;
             foreach (var pointToEdit in pointsToEdit)
             {
-                allTerrain &= AreaSceneHelper.VolumePointAllTerrain (am, pointToEdit, upSpots, policy) != AreaSceneHelper.TerrainResult.Error;
+                allTerrain &= AreaSceneHelper.VolumePointAllTerrain (am, pointToEdit, upSpots, policy) != TerrainResult.Error;
                 if (!allTerrain)
                 {
                     break;
@@ -130,7 +130,7 @@ namespace Area
 
         public int CurrentMaterialID => getMaterialID ();
 
-        (bool, AreaVolumePoint) TryGetPointForAdd (AreaVolumePoint point, Vector3 direction)
+        static (bool, AreaVolumePoint) TryGetPointForAdd (AreaVolumePoint point, Vector3 direction)
         {
             if (point.pointState == AreaVolumePointState.Full)
             {
@@ -186,7 +186,7 @@ namespace Area
             lastTerrainCompass = compass;
             lastBlockIndex = point.spotIndex;
             pass = false;
-            if (AreaManager.editingVolumeBrush != AreaManager.EditingVolumeBrush.Point)
+            if (!AreaSceneModeHelper.IsEditingVolumeBrushPoint)
             {
                 onTrigger?.Invoke ();
                 return;

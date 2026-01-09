@@ -50,12 +50,13 @@ namespace Area
         {
             this.bb = bb;
             brushSelector = new BrushSelector (bb);
+            subtypeSelector = new RoadSubtypeSelector (bb);
         }
 
         readonly AreaSceneBlackboard bb;
         readonly RoadModePanelPointDisplay pointDisplay = new RoadModePanelPointDisplay ();
-        readonly RoadSubtypeSelector subtypeSelector = new RoadSubtypeSelector ();
         readonly BrushSelector brushSelector;
+        readonly RoadSubtypeSelector subtypeSelector;
         AreaVolumePoint pointCached;
         bool cachedHover;
 

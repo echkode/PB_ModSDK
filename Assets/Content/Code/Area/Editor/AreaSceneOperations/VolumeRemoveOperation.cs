@@ -30,7 +30,7 @@ namespace Area
                 Debug.Log ("Edit volume target block | op: remove | index: " + pointStart.spotIndex);
             }
             face = AreaSceneHelper.GetCompassFromDirection (direction);
-            var points = AreaManager.CollectPointsInBrush (pointStart, AreaManager.editingVolumeBrush);
+            var points = AreaSceneModeHelper.CollectPointsInBrush (pointStart);
             pointsToEdit.Clear ();
             pointsToEdit.AddRange (points);
             return true;

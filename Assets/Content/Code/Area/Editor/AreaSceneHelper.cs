@@ -29,6 +29,7 @@ namespace Area
         };
 
         public const string unresolvedTilesetName = "unresolved";
+        public const float rampOffset = 1f / TilesetUtility.blockAssetSize;
 
         public static void SaveSelectedLevel ()
         {
@@ -236,21 +237,6 @@ namespace Area
             return am.IsPointTerrain(spot) || spot.blockTileset == AreaTilesetHelper.idOfRoad;
         }
 
-        public enum FreeSpacePolicy
-        {
-            Error = 0,
-            Pass,
-            SlopePass,
-            LookDownPass,
-        }
-
-        public enum TerrainResult
-        {
-            Error = 0,
-            Terrain,
-            FreeSpace,
-        }
-
         public static TerrainResult VolumePointAllTerrain (AreaManager am, AreaVolumePoint point, bool upSpots, FreeSpacePolicy freeSpacePolicy)
         {
             var start = upSpots ? WorldSpace.Compass.UpSouthWest : WorldSpace.Compass.SouthWest;
@@ -413,6 +399,434 @@ namespace Area
             return result;
         }
 
+        public static AreaRoadData GetRoadDataForPoint(AreaVolumePoint pointAbove)
+        {
+            var roadData = GetRoadData();
+
+            bool[] config = new bool[4];
+            for (int a = 0; a < 4; ++a)
+            {
+                AreaVolumePoint pointInRoadConfiguration = pointAbove.pointsInSpot[a + 4];
+                config[a] = pointInRoadConfiguration?.road??false;
+            }
+
+            int dataIndex = -1;
+            for (int a = 0; a < roadData.Length; ++a)
+            {
+                bool[] candidate = roadData[a].configurationAsArray;
+                bool equal = true;
+                for (int b = 0; b < 4; ++b)
+                {
+                    if (config[b] != candidate[b])
+                    {
+                        equal = false;
+                        break;
+                    }
+                }
+
+                if (equal)
+                {
+                    dataIndex = a;
+                    break;
+                }
+            }
+
+            if (dataIndex <= -1)
+                return null;
+
+            return roadData[dataIndex];
+        }
+
+        static AreaRoadData[] GetRoadData ()
+        {
+            if (cachedRoadData != null)
+            {
+                return cachedRoadData;
+            }
+
+            cachedRoadData = new[]
+            {
+                // no road (plain terrain)
+                new AreaRoadData (RoadConfigType.Empty, false, false, false, false, 1, 0),
+
+                // road in a single corner (inner turn edge)
+                new AreaRoadData (RoadConfigType.InCorner, true, false, false, false, 4, 0),
+                new AreaRoadData (RoadConfigType.InCorner, false, true, false, false, 4, 1),
+                new AreaRoadData (RoadConfigType.InCorner, false, false, true, false, 4, 3),
+                new AreaRoadData (RoadConfigType.InCorner, false, false, false, true, 4, 2),
+
+                // road in two corners (straight road edge)
+                new AreaRoadData (RoadConfigType.Straight, true, true, false, false, 2, 0),
+                new AreaRoadData (RoadConfigType.Straight, true, false, true, false, 2, 3),
+                new AreaRoadData (RoadConfigType.Straight, false, false, true, true, 2, 2),
+                new AreaRoadData (RoadConfigType.Straight, false, true, false, true, 2, 1),
+
+                // road in two corners (diagonal passage)
+                new AreaRoadData (RoadConfigType.BiDiagonal, true, false, true, false, 9, 0),
+                new AreaRoadData (RoadConfigType.BiDiagonal, false, true, false, true, 9, 1),
+
+                // road in three corners (outer turn edge)
+                new AreaRoadData (RoadConfigType.OutCorner, true, false, true, true, 3, 3),
+                new AreaRoadData (RoadConfigType.OutCorner, false, true, true, true, 3, 2),
+                new AreaRoadData (RoadConfigType.OutCorner, true, true, false, true, 3, 1),
+                new AreaRoadData (RoadConfigType.OutCorner, true, true, true, false, 3, 0),
+
+                // road in all corners (plain asphalt)
+                new AreaRoadData (RoadConfigType.Full, true, true, true, true, 0, 0),
+            };
+            return cachedRoadData;
+        }
+
+        public static void UpdateRoadConfigurations (AreaManager am, AreaVolumePoint pointStart, RoadSubtype subType)
+        {
+            if (pointStart.pointState != AreaVolumePointState.Full)
+            {
+                Debug.Log ("AM (I) | EditRoad | Selected starting point is not full, aborting");
+                return;
+            }
+
+            for (var i = 0; i < 4; i += 1)
+            {
+                var pointAbove = pointStart.pointsWithSurroundingSpots[i];
+                if (pointAbove == null)
+                {
+                    Debug.Log ("AM (I) | EditRoad | One of the points (" + i + ") above the starting one is null, aborting");
+                    return;
+                }
+
+                if (pointAbove.spotConfiguration != TilesetUtility.configurationFloor)
+                {
+                    Debug.Log ("AM (I) | EditRoad | One of the points (" + i + ") above has non-00001111 configuration, aborting");
+                    return;
+                }
+
+                var data = GetRoadDataForPoint (pointAbove);
+                if (data == null)
+                {
+                    Debug.Log ("AM (I) | EditRoad | One of the spots above (" + i + ") has a configuration that could not be found.");
+                    return;
+                }
+
+                if (pointAbove.blockTileset != AreaTilesetHelper.database.tilesetRoad.id
+                    || pointAbove.blockGroup != data.usedGroup
+                    || pointAbove.blockRotation != data.usedRotation)
+                {
+                    // Debug.Log ("AM (I) | EditRoad | Updating block " + pointAbove.spotIndex + " using road " + dataIndex);
+                    pointAbove.blockTileset = AreaTilesetHelper.database.tilesetRoad.id;
+                    pointAbove.blockGroup = data.usedGroup;
+                    pointAbove.blockSubtype = (byte)(int)subType;
+                    pointAbove.blockFlippedHorizontally = false;
+                    pointAbove.blockRotation = data.usedRotation;
+                    am.RebuildBlock (pointAbove);
+                }
+            }
+        }
+
+        public static void TrySettingSlope
+        (
+            AreaManager am,
+            AreaVolumePoint pointStartFull,
+            bool slopeDesired,
+            bool selectiveUpdates = true,
+            SlopeProximityCheck proximityCheck = SlopeProximityCheck.None,
+            bool log = false
+        )
+        {
+            var pointAboveStartEmpty = pointStartFull?.pointsWithSurroundingSpots[WorldSpace.Compass.Up];
+            if (!IsPointUsable (am, pointStartFull, AreaVolumePointState.Full, log)
+                || !IsPointUsable (am, pointAboveStartEmpty, AreaVolumePointState.Empty, log))
+            {
+                if (log)
+                {
+                    Debug.LogFormat
+                    (
+                        "Point {0} (origin, expected full) or {1} (above origin, expected empty) is not compatible with ramps",
+                        pointStartFull.ToLog (),
+                        pointAboveStartEmpty.ToLog ()
+                    );
+
+                    if (pointStartFull != null)
+                    {
+                        DebugExtensions.DrawCube (pointStartFull.pointPositionLocal, Vector3.one, Color.yellow, 1f);
+                    }
+                    if (pointAboveStartEmpty != null)
+                    {
+                        DebugExtensions.DrawCube (pointAboveStartEmpty.pointPositionLocal, Vector3.one, Color.yellow, 1f);
+                    }
+                }
+                return;
+            }
+
+            // Debug.Log ($"Slope set to {slopeDesired} | Corners allowed: {cornersAllowed} | Point start: {pointStartFull.ToLog ()} | Point above: {pointAboveStartEmpty.ToLog ()}");
+
+            slopePointNeighbors.Clear ();
+            slopePointsAffected.Clear ();
+
+            var neighborXPos = pointStartFull.pointsInSpot[WorldSpace.Compass.East];
+            var neighborZPos = pointStartFull.pointsInSpot[WorldSpace.Compass.North];
+            var neighborXNeg = pointStartFull.pointsWithSurroundingSpots[WorldSpace.Compass.West];
+            var neighborZNeg = pointStartFull.pointsWithSurroundingSpots[WorldSpace.Compass.South];
+            slopePointNeighbors.Add (neighborXPos);
+            slopePointNeighbors.Add (neighborZPos);
+            slopePointNeighbors.Add (neighborXNeg);
+            slopePointNeighbors.Add (neighborZNeg);
+
+            if (proximityCheck == SlopeProximityCheck.LateralSingle || proximityCheck == SlopeProximityCheck.LateralDouble)
+            {
+                slopePointNeighborsLeft.Clear ();
+                slopePointNeighborsRight.Clear ();
+
+                slopePointNeighborsRight.Add (neighborXPos?.pointsInSpot[WorldSpace.Compass.North]);
+                slopePointNeighborsLeft.Add (neighborXPos?.pointsWithSurroundingSpots[WorldSpace.Compass.South]);
+
+                slopePointNeighborsRight.Add (neighborZPos?.pointsInSpot[WorldSpace.Compass.East]);
+                slopePointNeighborsLeft.Add (neighborZPos?.pointsWithSurroundingSpots[WorldSpace.Compass.West]);
+
+                slopePointNeighborsRight.Add (neighborXNeg?.pointsWithSurroundingSpots[WorldSpace.Compass.South]);
+                slopePointNeighborsLeft.Add (neighborXNeg?.pointsInSpot[WorldSpace.Compass.North]);
+
+                slopePointNeighborsRight.Add (neighborZNeg?.pointsInSpot[WorldSpace.Compass.East]);
+                slopePointNeighborsLeft.Add (neighborZNeg?.pointsWithSurroundingSpots[WorldSpace.Compass.West]);
+
+                if (proximityCheck == SlopeProximityCheck.LateralDouble)
+                {
+                    slopePointNeighborsLeft2.Clear ();
+                    slopePointNeighborsRight2.Clear ();
+
+                    slopePointNeighborsRight2.Add (slopePointNeighborsRight[0]?.pointsInSpot[WorldSpace.Compass.North]);
+                    slopePointNeighborsLeft2.Add (slopePointNeighborsLeft[0]?.pointsWithSurroundingSpots[WorldSpace.Compass.South]);
+
+                    slopePointNeighborsRight2.Add (slopePointNeighborsRight[1]?.pointsInSpot[WorldSpace.Compass.East]);
+                    slopePointNeighborsLeft2.Add (slopePointNeighborsLeft[1]?.pointsWithSurroundingSpots[WorldSpace.Compass.West]);
+
+                    slopePointNeighborsRight2.Add (slopePointNeighborsRight[2]?.pointsWithSurroundingSpots[WorldSpace.Compass.South]);
+                    slopePointNeighborsLeft2.Add (slopePointNeighborsLeft[2]?.pointsInSpot[WorldSpace.Compass.North]);
+
+                    slopePointNeighborsRight2.Add (slopePointNeighborsRight[3]?.pointsInSpot[WorldSpace.Compass.East]);
+                    slopePointNeighborsLeft2.Add (slopePointNeighborsLeft[3]?.pointsWithSurroundingSpots[WorldSpace.Compass.West]);
+                }
+            }
+
+            for (var i = 0; i < slopePointNeighbors.Count; i += 1)
+            {
+                // For each of these horizontal neighbors, find the point under them
+                // A horizontal neighbor must be empty, a point under them must be full
+                var pointNeighbor = slopePointNeighbors[i];
+                var pointNeighborUnder = pointNeighbor?.pointsInSpot[WorldSpace.Compass.Down];
+
+                // Validate each point for state, proximity to edges, missing spots or wrong tilesets
+                if (!IsPointUsable (am, pointNeighbor, AreaVolumePointState.Empty, log)
+                    || !IsPointUsable (am, pointNeighborUnder, AreaVolumePointState.Full, log))
+                {
+                    if (log)
+                    {
+                        Debug.LogFormat
+                        (
+                            "Point {0} (neighbor {1}, expected empty) or {2} (under it, expected full) is not compatible with ramps",
+                            pointNeighbor.ToLog (),
+                            i,
+                            pointNeighborUnder.ToLog ()
+                        );
+
+                        if (pointNeighbor != null)
+                        {
+                            DebugExtensions.DrawCube (pointNeighbor.pointPositionLocal, Vector3.one, Color.red, 1f);
+                        }
+                        if (pointNeighborUnder != null)
+                        {
+                            DebugExtensions.DrawCube (pointNeighborUnder.pointPositionLocal, Vector3.one, Color.red, 1f);
+                        }
+                    }
+                    continue;
+                }
+
+                if (proximityCheck == SlopeProximityCheck.LateralSingle || proximityCheck == SlopeProximityCheck.LateralDouble)
+                {
+                    var pointNeighborLeft = slopePointNeighborsLeft[i];
+                    var pointNeighborLeftUnder = pointNeighborLeft?.pointsInSpot[WorldSpace.Compass.Down];
+
+                    if (!IsPointUsable (am, pointNeighborLeft, AreaVolumePointState.Empty, log)
+                        || !IsPointUsable (am, pointNeighborLeftUnder, AreaVolumePointState.Full, log))
+                    {
+                        if (log)
+                        {
+                            Debug.LogFormat
+                            (
+                                "Point {0} (neighbor left {1}, expected empty) or {2} (under it, expected full) is not compatible with ramps",
+                                pointNeighborLeft.ToLog (),
+                                i,
+                                pointNeighborLeftUnder.ToLog ()
+                            );
+
+                            if (pointNeighborLeft != null)
+                            {
+                                DebugExtensions.DrawCube (pointNeighborLeft.pointPositionLocal, Vector3.one, Color.red, 1f);
+                            }
+                            if (pointNeighborLeftUnder != null)
+                            {
+                                DebugExtensions.DrawCube (pointNeighborLeftUnder.pointPositionLocal, Vector3.one, Color.red, 1f);
+                            }
+                        }
+                        continue;
+                    }
+
+                    var pointNeighborRight = slopePointNeighborsRight[i];
+                    var pointNeighborRightUnder = pointNeighborRight?.pointsInSpot[WorldSpace.Compass.Down];
+
+                    if (!IsPointUsable (am, pointNeighborRight, AreaVolumePointState.Empty, log)
+                        || !IsPointUsable (am, pointNeighborRightUnder, AreaVolumePointState.Full, log))
+                    {
+                        if (log)
+                        {
+                            Debug.LogFormat
+                            (
+                                "Point {0} (neighbor right {1}, expected empty) or {2} (under it, expected full) is not compatible with ramps",
+                                pointNeighborRight.ToLog (),
+                                i,
+                                pointNeighborRightUnder.ToLog ()
+                            );
+
+                            if (pointNeighborRight != null)
+                                DebugExtensions.DrawCube (pointNeighborRight.pointPositionLocal, Vector3.one, Color.red, 1f);
+
+                            if (pointNeighborRightUnder != null)
+                                DebugExtensions.DrawCube (pointNeighborRightUnder.pointPositionLocal, Vector3.one, Color.red, 1f);
+                        }
+
+                        continue;
+                    }
+
+                    if (proximityCheck == SlopeProximityCheck.LateralDouble)
+                    {
+                        var pointNeighborLeft2 = slopePointNeighborsLeft2[i];
+                        var pointNeighborLeft2Under = pointNeighborLeft2?.pointsInSpot[WorldSpace.Compass.Down];
+                        if (!IsPointUsable (am, pointNeighborLeft2, AreaVolumePointState.Empty, log)
+                            || !IsPointUsable (am, pointNeighborLeft2Under, AreaVolumePointState.Full, log))
+                        {
+                            continue;
+                        }
+
+                        var pointNeighborRight2 = slopePointNeighborsRight2[i];
+                        var pointNeighborRight2Under = pointNeighborRight2?.pointsInSpot[WorldSpace.Compass.Down];
+                        if (!IsPointUsable (am, pointNeighborRight2, AreaVolumePointState.Empty, log)
+                            || !IsPointUsable (am, pointNeighborRight2Under, AreaVolumePointState.Full, log))
+                        {
+                            continue;
+                        }
+                    }
+                }
+
+                // At this point we're ready to apply changes
+                if (slopeDesired)
+                {
+                    pointNeighbor.terrainOffset = rampOffset;
+                    pointAboveStartEmpty.terrainOffset = -rampOffset;
+                }
+                else
+                {
+                    pointNeighbor.terrainOffset = 0f;
+                    pointAboveStartEmpty.terrainOffset = 0f;
+                }
+
+                slopePointsAffected.Add (pointAboveStartEmpty);
+            }
+
+            if (slopePointsAffected.Count <= 0)
+            {
+                return;
+            }
+
+            slopePointsAffected.Add (pointAboveStartEmpty);
+
+            var terrainModified = true;
+            for (var i = 0; i < slopePointsAffected.Count; i += 1)
+            {
+                var point = slopePointsAffected[i];
+                for (var s = 0; s < point.pointsWithSurroundingSpots.Length; s += 1)
+                {
+                    var pointWithNeighbourSpot = point.pointsWithSurroundingSpots[s];
+                    if (pointWithNeighbourSpot == null)
+                    {
+                        continue;
+                    }
+                    if (pointWithNeighbourSpot.blockTileset == AreaTilesetHelper.idOfTerrain)
+                    {
+                        pointWithNeighbourSpot.blockFlippedHorizontally = false;
+                        pointWithNeighbourSpot.blockRotation = 0;
+                        pointWithNeighbourSpot.blockGroup = 0;
+                        pointWithNeighbourSpot.blockSubtype = 0;
+                    }
+                    if (selectiveUpdates)
+                    {
+                        am.UpdateSpotAtIndex (pointWithNeighbourSpot.spotIndex, false);
+                        am.RebuildBlock (pointWithNeighbourSpot);
+                        am.RebuildCollisionForPoint (pointWithNeighbourSpot);
+                    }
+                }
+
+                if (selectiveUpdates)
+                {
+                    am.UpdateDamageAroundIndex (pointStartFull.spotIndex);
+                }
+            }
+
+            if (selectiveUpdates)
+            {
+                var sceneHelper = CombatSceneHelper.ins;
+                sceneHelper.terrain.Rebuild (true);
+            }
+        }
+
+        static bool IsPointUsable (AreaManager am, AreaVolumePoint tstPoint, AreaVolumePointState stateExpected, bool log)
+        {
+            if (tstPoint == null || tstPoint.pointState != stateExpected)
+            {
+                return false;
+            }
+
+            var xMax = am.boundsFull.x - 1;
+            var zMax = am.boundsFull.z - 1;
+            // Only iterate over top points in neighbor list
+            for (var p = WorldSpace.Compass.UpSouthWest; p < WorldSpace.Compass.SouthWest; p += 1)
+            {
+                var pt = tstPoint.pointsWithSurroundingSpots[p];
+                if (pt == null)
+                {
+                    return false;
+                }
+                // Skip cases where any spot in the surrounding 2x2x2 volume is not all terrain
+                if (pt.pointState != AreaVolumePointState.Empty && pt.blockTileset != 0 && pt.blockTileset != AreaTilesetHelper.idOfTerrain)
+                {
+                    if (log)
+                    {
+                        DebugExtensions.DrawCube (pt.pointPositionLocal, Vector3.one, Color.red, 1f);
+                        Debug.DrawLine (pt.pointPositionLocal, tstPoint.pointPositionLocal, Color.red, 1f);
+                    }
+                    return false;
+                }
+                if (pt.pointPositionIndex.x <= 0 || pt.pointPositionIndex.z <= 0)
+                {
+                    if (log)
+                    {
+                        DebugExtensions.DrawCube (pt.pointPositionLocal, Vector3.one, Color.red, 1f);
+                        Debug.DrawLine (pt.pointPositionLocal, tstPoint.pointPositionLocal, Color.red, 1f);
+                    }
+                    return false;
+                }
+                if (pt.pointPositionIndex.x >= xMax || pt.pointPositionIndex.z >= zMax)
+                {
+                    if (log)
+                    {
+                        DebugExtensions.DrawCube (pt.pointPositionLocal, Vector3.one, Color.red, 1f);
+                        Debug.DrawLine (pt.pointPositionLocal, tstPoint.pointPositionLocal, Color.red, 1f);
+                    }
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         public static int GetCompassFromDirection (Vector3 direction)
         {
             var vertical = Vector3.Dot (Vector3.up, direction);
@@ -439,29 +853,26 @@ namespace Area
             return ew > 0 ? WorldSpace.Compass.East : WorldSpace.Compass.West;
         }
 
-        public static (AVPArray, int) GetNeighborIndexFromCompass (int compass)
+        static (AVPArray, int) GetNeighborIndexFromCompass (int compass)
         {
-            switch (compass)
+            if (compass < 1)
             {
-                case WorldSpace.Compass.Up:
-                    return (AVPArray.Spot, WorldSpace.Compass.Up);
-                case WorldSpace.Compass.Down:
-                    return (AVPArray.Point, WorldSpace.Compass.Down);
-                case WorldSpace.Compass.North:
-                    return (AVPArray.Point, WorldSpace.Compass.North);
-                case WorldSpace.Compass.West:
-                    return (AVPArray.Spot, WorldSpace.Compass.West);
-                case WorldSpace.Compass.South:
-                    return (AVPArray.Spot, WorldSpace.Compass.South);
-                case WorldSpace.Compass.East:
-                    return (AVPArray.Point, WorldSpace.Compass.East);
+                return (AVPArray.Invalid, -1);
             }
-            return (AVPArray.Invalid, -1);
+            if (compass >= avpArrayLookup.Length)
+            {
+                return (AVPArray.Invalid, -1);
+            }
+            return (avpArrayLookup[compass], compass);
         }
 
-        public static AreaVolumePoint GetNeighborFromCompass (AreaVolumePoint avp, int compass)
+        static AreaVolumePoint GetNeighborFromCompass (AreaVolumePoint avp, int compass)
         {
             var (avpArray, neighbor) = GetNeighborIndexFromCompass (compass);
+            if (neighbor == -1)
+            {
+                return null;
+            }
             return avpArray == AVPArray.Point ? avp.pointsInSpot[neighbor] : avp.pointsWithSurroundingSpots[neighbor];
         }
 
@@ -499,7 +910,7 @@ namespace Area
             }
             var bounds = am.boundsFull;
             var points = am.points;
-            var offsets = blockFaceSpotOffsets[(int)face];
+            var offsets = blockFaceSpotOffsets[face];
             for (var i = 0; i < offsets.Length; i += 1)
             {
                 var location = point.pointPositionIndex + offsets[i];
@@ -537,7 +948,7 @@ namespace Area
             }
 
             var spots = GetSpotsForBlockFace (am, face, point);
-            var labels = CubeFaceQuadrant.Labels[(int)face];
+            var labels = CubeFaceQuadrant.Labels[face];
             for (var i = 0; i < blockFaceSpotsWithLabels.Length; i += 1)
             {
                 blockFaceSpotsWithLabels[i] = (labels[i], spots[i]);
@@ -600,11 +1011,32 @@ namespace Area
             return "<error>";
         }
 
+        // The AreaVolumePoint class keeps its neighboring points in two different array.
+        // The pointsInSpot array holds neighbors to the north, east and down in world space. This is Point.
+        // The pointsWithSurroundingSpots array holds neighbors to the south, west and up in world space. This is Spot.
+        enum AVPArray
+        {
+            Invalid = -1,
+            Point,
+            Spot,
+        }
+
         const float dot45 = 0.7071067f;
         const string tilesetPrefix = "tileset_";
 
         static readonly AreaVolumePoint[] blockFaceSpots = new AreaVolumePoint[CubeFaceQuadrant.Count];
         static readonly (string, AreaVolumePoint)[] blockFaceSpotsWithLabels = new (string, AreaVolumePoint)[CubeFaceQuadrant.Count];
+
+        static readonly AVPArray[] avpArrayLookup = new[]
+        {
+            AVPArray.Invalid,
+            AVPArray.Point,
+            AVPArray.Point,
+            AVPArray.Spot,
+            AVPArray.Point,
+            AVPArray.Spot,
+            AVPArray.Spot,
+        };
 
         static readonly Dictionary<int, Vector3Int[]> blockFaceSpotOffsets = new Dictionary<int, Vector3Int[]> ()
         {
@@ -651,6 +1083,7 @@ namespace Area
                 new Vector3Int(0, 0, -1),
             },
         };
+
         static class CubeFaceQuadrant
         {
             // Quadrants are listed in counterclockwise order starting from the northeast corner.
@@ -665,12 +1098,12 @@ namespace Area
 
             public static readonly Dictionary<int, List<string>> Labels = new Dictionary<int, List<string>> ()
             {
-                [(int)WorldSpace.Compass.Up] = new List<string> () { "NE", "NW", "SW", "SE", },
-                [(int)WorldSpace.Compass.Down] = new List<string> () { "NW", "SW", "SE", "NE", },
-                [(int)WorldSpace.Compass.North] = new List<string> () { "UE", "UW", "DW", "DE", },
-                [(int)WorldSpace.Compass.West] = new List<string> () { "US", "UN", "DN", "DS" },
-                [(int)WorldSpace.Compass.South] = new List<string> () { "UE", "UW", "DW", "DE", },
-                [(int)WorldSpace.Compass.East] = new List<string> () { "UN", "US", "DS", "DN", },
+                [WorldSpace.Compass.Up] = new List<string> () { "NE", "NW", "SW", "SE", },
+                [WorldSpace.Compass.Down] = new List<string> () { "NW", "SW", "SE", "NE", },
+                [WorldSpace.Compass.North] = new List<string> () { "UE", "UW", "DW", "DE", },
+                [WorldSpace.Compass.West] = new List<string> () { "US", "UN", "DN", "DS" },
+                [WorldSpace.Compass.South] = new List<string> () { "UE", "UW", "DW", "DE", },
+                [WorldSpace.Compass.East] = new List<string> () { "UN", "US", "DS", "DN", },
             };
         }
 
@@ -693,6 +1126,15 @@ namespace Area
             new Vector3Int (1, 0, 0),
             new Vector3Int (0, 0, -1),
         };
+
+        static readonly List<AreaVolumePoint> slopePointNeighbors = new List<AreaVolumePoint> ();
+        static readonly List<AreaVolumePoint> slopePointNeighborsLeft = new List<AreaVolumePoint> ();
+        static readonly List<AreaVolumePoint> slopePointNeighborsRight = new List<AreaVolumePoint> ();
+        static readonly List<AreaVolumePoint> slopePointNeighborsLeft2 = new List<AreaVolumePoint> ();
+        static readonly List<AreaVolumePoint> slopePointNeighborsRight2 = new List<AreaVolumePoint> ();
+        static readonly List<AreaVolumePoint> slopePointsAffected = new List<AreaVolumePoint> ();
+
+        static AreaRoadData[] cachedRoadData;
     }
 
     abstract class SelfDrawnGUI

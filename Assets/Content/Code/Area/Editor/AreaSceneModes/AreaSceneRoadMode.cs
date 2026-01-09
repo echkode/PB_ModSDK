@@ -45,7 +45,7 @@ namespace Area
                         return true;
                     }
                     lastIndex = bb.lastPointHovered.spotIndex;
-                    bb.am.EditRoad (lastIndex, button == KeyCode.Mouse1 ? AreaManager.RoadEditingOperation.Remove : AreaManager.RoadEditingOperation.Add);
+                    EditRoad (bb.am, lastIndex, button == KeyCode.Mouse1 ? RoadEditingOperation.Remove : RoadEditingOperation.Add);
                     return true;
             }
             lastIndex = -1;
@@ -84,23 +84,23 @@ namespace Area
 
         void Edit (KeyCode mouseButton)
         {
-            var operation = AreaManager.RoadEditingOperation.None;
+            var operation = RoadEditingOperation.None;
             switch (mouseButton)
             {
                 case KeyCode.Mouse0:
-                    operation = AreaManager.RoadEditingOperation.Add;
+                    operation = RoadEditingOperation.Add;
                     break;
                 case KeyCode.Mouse1:
-                    operation = AreaManager.RoadEditingOperation.Remove;
+                    operation = RoadEditingOperation.Remove;
                     break;
                 case KeyCode.Mouse2:
-                    operation = AreaManager.RoadEditingOperation.FloodFill;
+                    operation = RoadEditingOperation.FloodFill;
                     break;
                 case KeyCode.PageUp:
-                    operation = AreaManager.RoadEditingOperation.SubtypeNext;
+                    operation = RoadEditingOperation.SubtypeNext;
                     break;
                 case KeyCode.PageDown:
-                    operation = AreaManager.RoadEditingOperation.SubtypePrev;
+                    operation = RoadEditingOperation.SubtypePrev;
                     break;
                 case KeyCode.LeftBracket:
                 case KeyCode.RightBracket:
@@ -108,7 +108,7 @@ namespace Area
                     return;
             }
             lastIndex = bb.lastPointHovered.spotIndex;
-            bb.am.EditRoad (lastIndex, operation);
+            EditRoad (bb.am, lastIndex, operation);
         }
 
         void FloodFill ()
@@ -329,10 +329,174 @@ namespace Area
                 var point = points[indexPoint];
                 roadPoints.Add (point);
             }
-            bb.am.EditRoadPoints(roadPoints, AreaManager.RoadEditingOperation.Add);
+            EditRoadPoints(bb.am, roadPoints, RoadEditingOperation.Add);
         }
 
         public static AreaSceneMode CreateInstance (AreaSceneBlackboard bb) => new AreaSceneRoadMode (bb);
+
+        void EditRoad (AreaManager am, int indexStart, RoadEditingOperation operation)
+        {
+            var pointStart = am.points[indexStart];
+            pointsToEdit.Clear ();
+            pointsToEdit.AddRange (AreaSceneModeHelper.CollectPointsInBrush (pointStart));
+            EditRoadPoints (am, operation);
+        }
+
+        void EditRoadPoints (AreaManager am, List<AreaVolumePoint> roadPoints, RoadEditingOperation operation)
+        {
+            pointsToEdit.Clear ();
+            pointsToEdit.AddRange (roadPoints);
+            EditRoadPoints (am, operation);
+        }
+
+        void EditRoadPoints (AreaManager am, RoadEditingOperation operation)
+        {
+            var terrainModified = false;
+            var roadAdded = operation == RoadEditingOperation.Add;
+            var roadRemoved = operation == RoadEditingOperation.Remove;
+            var roadFloodFill = operation == RoadEditingOperation.FloodFill;
+            var roadSubtypeNext = operation == RoadEditingOperation.SubtypeNext;
+            var roadSubtypePrev = operation == RoadEditingOperation.SubtypePrev;
+
+            if (roadAdded || roadRemoved)
+            {
+                for (var i = 0; i < pointsToEdit.Count; i += 1)
+                {
+                    var point = pointsToEdit[i];
+                    if (point.pointState != AreaVolumePointState.Full)
+                    {
+                        Debug.Log ("AM (I) | EditRoad | One of the core points (" + i + ") is not full, aborting");
+                        return;
+                    }
+
+                    for (var a = WorldSpace.Compass.UpSouthWest; a < WorldSpace.Compass.SouthWest; a += 1)
+                    {
+                        var pointAbove = point.pointsWithSurroundingSpots[a];
+                        if (pointAbove == null)
+                        {
+                            Debug.Log ("AM (I) | EditRoad | One of the surface points (" + a + ") above the starting one is null, aborting");
+                            return;
+                        }
+                        if (pointAbove.spotConfiguration != TilesetUtility.configurationFloor)
+                        {
+                            Debug.Log ("AM (I) | EditRoad | One of the surface points (" + a + ") above has non-00001111 configuration, aborting");
+                            return;
+                        }
+                    }
+
+                    if (!terrainModified)
+                    {
+                        for (var s = 0; s < point.pointsWithSurroundingSpots.Length; s += 1)
+                        {
+                            var pointWithNeighbourSpot = point.pointsWithSurroundingSpots[s];
+                            if (pointWithNeighbourSpot == null)
+                            {
+                                continue;
+                            }
+                            if (pointWithNeighbourSpot.blockTileset == AreaTilesetHelper.idOfTerrain)
+                            {
+                                terrainModified = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (roadAdded)
+            {
+                for (var i = 0; i < pointsToEdit.Count; i += 1)
+                {
+                    pointsToEdit[i].road = true;
+                }
+                for (var i = 0; i < pointsToEdit.Count; i += 1)
+                {
+                    AreaSceneHelper.UpdateRoadConfigurations (am, pointsToEdit[i], bb.roadSubtype);
+                }
+            }
+            else if (roadRemoved)
+            {
+                for (var i = 0; i < pointsToEdit.Count; i += 1)
+                {
+                    pointsToEdit[i].road = false;
+                }
+                for (var i = 0; i < pointsToEdit.Count; i += 1)
+                {
+                    AreaSceneHelper.UpdateRoadConfigurations (am, pointsToEdit[i], bb.roadSubtype);
+                }
+            }
+            else if (roadFloodFill)
+            {
+                FloodFillRoadSubtype (am, pointsToEdit, bb.roadSubtype);
+                terrainModified = true;
+            }
+            else if (roadSubtypeNext || roadSubtypePrev)
+            {
+                var roadSubtypeInt = (int)bb.roadSubtype;
+                roadSubtypeInt += roadSubtypeNext ? 10 : -10;
+                if (roadSubtypeInt > 30)
+                {
+                    roadSubtypeInt = 0;
+                }
+                else if (roadSubtypeInt < 0)
+                {
+                    roadSubtypeInt = 30;
+                }
+                bb.roadSubtype = (RoadSubtype)roadSubtypeInt;
+            }
+
+            if (terrainModified)
+            {
+                var sceneHelper = CombatSceneHelper.ins;
+                sceneHelper.terrain.Rebuild (true);
+            }
+        }
+
+        static void FloodFillRoadSubtype (AreaManager am, List<AreaVolumePoint> startPoints, RoadSubtype roadSubtype)
+        {
+            var candidates = new Queue<AreaVolumePoint>();
+            var processedSet = new HashSet<AreaVolumePoint>();
+            var resultList = new List<AreaVolumePoint>();
+
+            foreach (var pt in startPoints)
+            {
+                candidates.Enqueue (pt);
+            }
+
+            while (candidates.Count > 0)
+            {
+                var pt = candidates.Dequeue ();
+                if (pt == null || !pt.road || processedSet.Contains (pt))
+                {
+                    continue;
+                }
+
+                resultList.Add (pt);
+                processedSet.Add (pt);
+                candidates.Enqueue (pt.pointsInSpot[1]);
+                candidates.Enqueue (pt.pointsWithSurroundingSpots[6]);
+                candidates.Enqueue (pt.pointsInSpot[2]);
+                candidates.Enqueue (pt.pointsWithSurroundingSpots[5]);
+            }
+
+            foreach (var pt in resultList)
+            {
+                for (var i = WorldSpace.Compass.UpSouthWest; i < WorldSpace.Compass.SouthWest; i += 1)
+                {
+                    var pointAbove = pt.pointsWithSurroundingSpots[i];
+                    if (pointAbove == null)
+                    {
+                        break;
+                    }
+                    if (pointAbove.spotConfiguration != TilesetUtility.configurationFloor)
+                    {
+                        break;
+                    }
+                    pointAbove.blockSubtype = (byte)(int)roadSubtype;
+                    am.RebuildBlock (pointAbove);
+                }
+            }
+        }
 
         AreaSceneRoadMode (AreaSceneBlackboard bb)
         {
@@ -347,6 +511,7 @@ namespace Area
         int lastIndex = -1;
 
         static readonly HashSet<int> filledIndexes = new HashSet<int> ();
+        static readonly List<AreaVolumePoint> pointsToEdit = new List<AreaVolumePoint> ();
 
         const int empty = 0;
         const int border = 1;

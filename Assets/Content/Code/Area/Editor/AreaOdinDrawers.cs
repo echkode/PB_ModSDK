@@ -152,7 +152,7 @@ namespace Area
     }
 
     [DrawerPriority (DrawerPriorityLevel.ValuePriority)]
-    sealed class EditingVolumeBrushButtonsDrawer : OdinValueDrawer<AreaManager.EditingVolumeBrush>
+    sealed class EditingVolumeBrushButtonsDrawer : OdinValueDrawer<EditingVolumeBrush>
     {
         protected override bool CanDrawValueProperty (InspectorProperty property) => property.GetAttribute<EnumButtonsAttribute> () != null;
 
@@ -174,7 +174,7 @@ namespace Area
                 }
                 if (GUILayout.Button (labelMap[k], style))
                 {
-                    ValueEntry.SmartValue = (AreaManager.EditingVolumeBrush)k;
+                    ValueEntry.SmartValue = (EditingVolumeBrush)k;
                 }
                 GUI.backgroundColor = bg;
             }
@@ -183,11 +183,11 @@ namespace Area
 
         static readonly Dictionary<int, string> labelMap = new Dictionary<int, string> ()
         {
-            [(int)AreaManager.EditingVolumeBrush.Point] = " 1x1 ",
-            [(int)AreaManager.EditingVolumeBrush.Square2x2] = "2x2R",
-            [(int)AreaManager.EditingVolumeBrush.Square3x3] = "3x3R",
-            [(int)AreaManager.EditingVolumeBrush.Circle3x3] = "3x3C",
-            [(int)AreaManager.EditingVolumeBrush.Circle5x5] = "5x5C",
+            [(int)EditingVolumeBrush.Point] = " 1x1 ",
+            [(int)EditingVolumeBrush.Square2x2] = "2x2R",
+            [(int)EditingVolumeBrush.Square3x3] = "3x3R",
+            [(int)EditingVolumeBrush.Circle3x3] = "3x3C",
+            [(int)EditingVolumeBrush.Circle5x5] = "5x5C",
         };
         static readonly List<int> labelMapKeys = labelMap.Keys.OrderBy (k => k).ToList ();
         static readonly int firstButton = labelMapKeys.First ();
@@ -195,7 +195,7 @@ namespace Area
     }
 
     [DrawerPriority (DrawerPriorityLevel.ValuePriority)]
-    sealed class RoadSubtypeButtonsDrawer : OdinValueDrawer<AreaManager.RoadSubtype>
+    sealed class RoadSubtypeButtonsDrawer : OdinValueDrawer<RoadSubtype>
     {
         protected override bool CanDrawValueProperty (InspectorProperty property) => property.GetAttribute<EnumButtonsAttribute> () != null;
 
@@ -217,7 +217,7 @@ namespace Area
                 }
                 if (GUILayout.Button (labelMap[k], style))
                 {
-                    ValueEntry.SmartValue = (AreaManager.RoadSubtype)k;
+                    ValueEntry.SmartValue = (RoadSubtype)k;
                 }
                 GUI.backgroundColor = bg;
             }
@@ -226,10 +226,10 @@ namespace Area
 
         static readonly Dictionary<int, string> labelMap = new Dictionary<int, string> ()
         {
-            [(int)AreaManager.RoadSubtype.GrassDirt] = "G+D",
-            [(int)AreaManager.RoadSubtype.GrassCurb] = "G+C",
-            [(int)AreaManager.RoadSubtype.ConcreteCurb] = "C+C",
-            [(int)AreaManager.RoadSubtype.TileCurb] = "T+C",
+            [(int)RoadSubtype.GrassDirt] = "G+D",
+            [(int)RoadSubtype.GrassCurb] = "G+C",
+            [(int)RoadSubtype.ConcreteCurb] = "C+C",
+            [(int)RoadSubtype.TileCurb] = "T+C",
         };
         static readonly List<int> labelMapKeys = labelMap.Keys.OrderBy (k => k).ToList ();
         static readonly int firstButton = labelMapKeys.First ();
@@ -237,7 +237,7 @@ namespace Area
     }
 
     [DrawerPriority (DrawerPriorityLevel.ValuePriority)]
-    sealed class EditingVolumeBrushListDrawer : OdinValueDrawer<AreaManager.EditingVolumeBrush>
+    sealed class EditingVolumeBrushListDrawer : OdinValueDrawer<EditingVolumeBrush>
     {
         protected override bool CanDrawValueProperty (InspectorProperty property) => property.GetAttribute<EnumDropdownAttribute> () != null;
 
@@ -247,7 +247,7 @@ namespace Area
             var rectDropdown = rect.MinHeight (EditorGUIUtility.singleLineHeight);
             var rectButtonRight = rectDropdown.TakeFromRight (22f);
             var rectButtonLeft = rectDropdown.TakeFromRight (22f);
-            ValueEntry.SmartValue = EnumSelector<AreaManager.EditingVolumeBrush>.DrawEnumField (rectDropdown, label, ValueEntry.SmartValue);
+            ValueEntry.SmartValue = EnumSelector<EditingVolumeBrush>.DrawEnumField (rectDropdown, label, ValueEntry.SmartValue);
             if (GUI.Button (rectButtonLeft, EditorGUIUtility.IconContent ("d_back"), SirenixGUIStyles.Button))
             {
                 Roll (false);
@@ -261,12 +261,12 @@ namespace Area
         void Roll (bool forward)
         {
             var v = (int)ValueEntry.SmartValue;
-            ValueEntry.SmartValue = (AreaManager.EditingVolumeBrush)v.OffsetAndWrap (forward, 0, (int)AreaManager.EditingVolumeBrush.Circle5x5);
+            ValueEntry.SmartValue = (EditingVolumeBrush)v.OffsetAndWrap (forward, 0, (int)EditingVolumeBrush.Circle5x5);
         }
     }
 
     [DrawerPriority (DrawerPriorityLevel.ValuePriority)]
-    sealed class RoadSubtypeListDrawer : OdinValueDrawer<AreaManager.RoadSubtype>
+    sealed class RoadSubtypeListDrawer : OdinValueDrawer<RoadSubtype>
     {
         protected override bool CanDrawValueProperty (InspectorProperty property) => property.GetAttribute<EnumDropdownAttribute> () != null;
 
@@ -276,7 +276,7 @@ namespace Area
             var rectDropdown = rect.MinHeight (EditorGUIUtility.singleLineHeight);
             var rectButtonRight = rectDropdown.TakeFromRight (22f);
             var rectButtonLeft = rectDropdown.TakeFromRight (22f);
-            ValueEntry.SmartValue = EnumSelector<AreaManager.RoadSubtype>.DrawEnumField (rectDropdown, label, ValueEntry.SmartValue);
+            ValueEntry.SmartValue = EnumSelector<RoadSubtype>.DrawEnumField (rectDropdown, label, ValueEntry.SmartValue);
             if (GUI.Button (rectButtonLeft, EditorGUIUtility.IconContent ("d_back"), SirenixGUIStyles.Button))
             {
                 Roll (false);
@@ -291,7 +291,7 @@ namespace Area
         {
             var v = (int)ValueEntry.SmartValue;
             var delta = forward ? 10 : -10;
-            ValueEntry.SmartValue = (AreaManager.RoadSubtype)v.OffsetAndWrap (delta, (int)AreaManager.RoadSubtype.TileCurb);
+            ValueEntry.SmartValue = (RoadSubtype)v.OffsetAndWrap (delta, (int)RoadSubtype.TileCurb);
         }
     }
 

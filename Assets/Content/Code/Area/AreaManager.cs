@@ -121,7 +121,7 @@ namespace Area
         public static Entity[] pointEntitiesMain;
         public static Entity[] pointEntitiesInterior;
 
-        private static ComponentType componentTypeModel;
+        public static ComponentType componentTypeModel;
         private static ComponentType componentTypeSimulated;
         private static ComponentType componentTypeFrozen;
         private static ComponentType componentTypeStatic;

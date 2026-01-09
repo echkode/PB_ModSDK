@@ -66,13 +66,13 @@ namespace Area
         }
         */
 
-        public void DrawVolumeSelectionHandles (Vector3 position, Color color)
+        public void DrawVolumeSelectionHandles (EditingVolumeBrush editingVolumeBrush, Vector3 position, Color color)
         {
 
             var hc = Handles.color;
             Handles.color = color.WithAlpha (0.5f);
 
-            if (AreaManager.editingVolumeBrush == AreaManager.EditingVolumeBrush.Circle3x3 || AreaManager.editingVolumeBrush == AreaManager.EditingVolumeBrush.Square3x3)
+            if (editingVolumeBrush == EditingVolumeBrush.Circle3x3 || editingVolumeBrush == EditingVolumeBrush.Square3x3)
             {
                 // X+
                 Handles.CubeHandleCap (0, position + new Vector3 (TilesetUtility.blockAssetSize, 0f, 0f), Quaternion.identity, 0.5f, EventType.Repaint);
@@ -84,7 +84,7 @@ namespace Area
                 Handles.CubeHandleCap (0, position + new Vector3 (0f, 0f, -TilesetUtility.blockAssetSize), Quaternion.identity, 0.5f, EventType.Repaint);
             }
 
-            if (AreaManager.editingVolumeBrush == AreaManager.EditingVolumeBrush.Square3x3)
+            if (editingVolumeBrush == EditingVolumeBrush.Square3x3)
             {
                 // X+ & Z+
                 Handles.CubeHandleCap (0, position + new Vector3 (TilesetUtility.blockAssetSize, 0f, TilesetUtility.blockAssetSize), Quaternion.identity, 0.5f, EventType.Repaint);
@@ -96,7 +96,7 @@ namespace Area
                 Handles.CubeHandleCap (0, position + new Vector3 (TilesetUtility.blockAssetSize, 0f, -TilesetUtility.blockAssetSize), Quaternion.identity, 0.5f, EventType.Repaint);
             }
 
-            if (AreaManager.editingVolumeBrush == AreaManager.EditingVolumeBrush.Square2x2)
+            if (editingVolumeBrush == EditingVolumeBrush.Square2x2)
             {
                 // X-
                 Handles.CubeHandleCap (0, position + new Vector3 (-TilesetUtility.blockAssetSize, 0f, 0f), Quaternion.identity, 0.5f, EventType.Repaint);

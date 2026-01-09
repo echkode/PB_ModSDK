@@ -64,6 +64,43 @@ namespace Area.Scene
         Snippet,
     }
 
+    public enum EditingVolumeBrush
+    {
+        Point,
+        Square2x2,
+        Square3x3,
+        Circle3x3,
+        Circle5x5
+    }
+
+    public enum RoadConfigType
+    {
+        Empty,
+        Full,
+        Straight,
+        InCorner,
+        OutCorner,
+        BiDiagonal
+    }
+
+    public enum RoadEditingOperation
+    {
+        None = 0,
+        Add = 1,
+        Remove = 2,
+        FloodFill = 3,
+        SubtypeNext = 10,
+        SubtypePrev = 11
+    }
+
+    public enum RoadSubtype
+    {
+        GrassDirt = 0,
+        GrassCurb = 10,
+        ConcreteCurb = 20,
+        TileCurb = 30,
+    }
+
     enum SpotSearchType
     {
         None = 0,
@@ -103,14 +140,26 @@ namespace Area.Scene
         FullMarkedLayer,
     }
 
-    // The AreaVolumePoint class keeps its neighboring points in two different array.
-    // The pointsInSpot array holds neighbors to the north, east and down in world space. This is Point.
-    // The pointsWithSurroundingSpots array holds neighbors to the south, west and up in world space. This is Spot.
-    enum AVPArray
+    public enum SlopeProximityCheck
     {
-        Invalid = -1,
-        Point,
-        Spot,
+        None,
+        LateralSingle,
+        LateralDouble
+    }
+
+    public enum FreeSpacePolicy
+    {
+        Error = 0,
+        Pass,
+        SlopePass,
+        LookDownPass,
+    }
+
+    public enum TerrainResult
+    {
+        Error = 0,
+        Terrain,
+        FreeSpace,
     }
 
     static class BoundsSpace
@@ -155,6 +204,22 @@ namespace Area.Scene
     {
         public Vector4 HSBPrimary;
         public Vector4 HSBSecondary;
+    }
+
+    class AreaRoadData
+    {
+        public readonly bool[] configurationAsArray;
+        public readonly byte usedGroup;
+        public readonly byte usedRotation;
+        public readonly RoadConfigType configType;
+
+        public AreaRoadData (RoadConfigType configType, bool a, bool b, bool c, bool d, byte usedGroup, byte usedRotation)
+        {
+            configurationAsArray = new [] { a, b, c, d };
+            this.usedGroup = usedGroup;
+            this.usedRotation = usedRotation;
+            this.configType = configType;
+        }
     }
 
     class TilesetColorInfo

@@ -52,7 +52,7 @@ namespace Area
                 Debug.Log ("Edit volume -- target block | op: add | index: " + pointStart.spotIndex);
             }
 
-            var points = AreaManager.CollectPointsInBrush (pointStart, AreaManager.editingVolumeBrush);
+            var points = AreaSceneModeHelper.CollectPointsInBrush (pointStart);
             pointsToEdit.Clear ();
             pointsToEdit.AddRange (points);
             return true;

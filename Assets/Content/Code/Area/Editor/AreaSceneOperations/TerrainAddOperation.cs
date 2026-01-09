@@ -47,7 +47,7 @@ namespace Area
                 Debug.Log ("Edit terrain -- target block | op: add | index: " + pointStart.spotIndex);
             }
 
-            if (!AreaSceneTerrainShapeMode.CheckBrushPoints (bb.am, pointStart, pointsToEdit, upSpots, AreaSceneHelper.FreeSpacePolicy.LookDownPass, bb.enableTerrainShapeLogging))
+            if (!AreaSceneTerrainShapeMode.CheckBrushPoints (bb.am, pointStart, pointsToEdit, upSpots, Scene.FreeSpacePolicy.LookDownPass, bb.enableTerrainShapeLogging))
             {
                 if (bb.enableTerrainShapeLogging)
                 {

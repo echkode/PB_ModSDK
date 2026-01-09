@@ -5,6 +5,8 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 
+using CustomRendering;
+
 namespace Area
 {
     using Scene;
@@ -24,7 +26,7 @@ namespace Area
             }
             cellVisuals.OnDestroy ();
             floor.OnDestroy ();
-            bb.am.ApplyPropVisibilityEverywhere(0);
+            ApplyPropVisibilityEverywhere(bb.am, 0);
             EnableBlockColliders ();
             bb.selectionLayer = -1;
             bb.selectedSpots.Clear ();
@@ -126,7 +128,7 @@ namespace Area
                 if (bb.showPropsOnLayer != lastShowPropsOnLayer)
                 {
                     lastShowPropsOnLayer = bb.showPropsOnLayer;
-                    bb.am.ApplyPropVisibilityEverywhere(currentLayer + (lastShowPropsOnLayer ? 0 : 1));
+                    ApplyPropVisibilityEverywhere(bb.am, currentLayer + (lastShowPropsOnLayer ? 0 : 1));
                 }
                 cellVisuals.DisplayCellObjects (currentLayer);
                 return;
@@ -297,6 +299,33 @@ namespace Area
             blockCollidersActive = false;
         }
 
+        static void ApplyPropVisibilityEverywhere (AreaManager am, int cutoffLayer)
+        {
+            // This is the counterpart for props to hiding/showing blocks during layer editing.
+            // Any props above layer will be hidden, those on or below layer will be shown.
+
+            var hideStop = am.boundsFull.x * am.boundsFull.z * cutoffLayer;
+            for (var i = 0; i < am.points.Count; i += 1)
+            {
+                if (!am.indexesOccupiedByProps.TryGetValue (i, out var placements))
+                {
+                    continue;
+                }
+
+                var visible = i >= hideStop;
+                var halfValues = visible ? propVisible : propInvisible;
+                foreach (var placement in placements)
+                {
+                    if (AreaAssetHelper.propsHiddenWithECS.Contains (placement.prototype.id))
+                    {
+                        placement.UpdateVisibilityWithECS (visible, AreaManager.componentTypeModel);
+                        continue;
+                    }
+                    placement.UpdateVisibility(halfValues);
+                }
+            }
+        }
+
         void ChangeSpotVisiblity (int layer)
         {
             var am = bb.am;
@@ -304,7 +333,7 @@ namespace Area
             {
                 return;
             }
-            am.ApplyPropVisibilityEverywhere(layer + (lastShowPropsOnLayer ? 0 : 1));
+            ApplyPropVisibilityEverywhere(am, layer + (lastShowPropsOnLayer ? 0 : 1));
             var sliceDepth = -layer * 3f + nudge;
             CombatSceneHelper.ins.materialHelper.SetupSlicingForLayerMode(true, sliceDepth, sliceColor);
         }
@@ -399,7 +428,7 @@ namespace Area
                 return;
             }
             floor.Hide ();
-            bb.am.ApplyPropVisibilityEverywhere(0);
+            ApplyPropVisibilityEverywhere(bb.am, 0);
             EnableBlockColliders ();
             cellVisuals.Hide ();
         }
@@ -445,6 +474,8 @@ namespace Area
         bool lastShowPropsOnLayer;
 
         static readonly HSBColor sliceColor = new HSBColor (0f, 0f, 0.18f, 1f);
+        static readonly HalfVector4 propVisible = new HalfVector4(1f, 0f, 1f, 1f);
+        static readonly HalfVector4 propInvisible = new HalfVector4(0f, 1f, 1f, 1f);
     }
 
     enum CellObjectOperation

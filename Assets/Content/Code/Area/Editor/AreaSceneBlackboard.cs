@@ -6,8 +6,9 @@ namespace Area
 {
     using Scene;
 
-    delegate void OnLevelLoaded();
+    delegate void OnLevelLoaded ();
     delegate void OnEditingModeChanged ();
+    delegate void OnEditingVolumeBrushChanged (AreaSceneBlackboard bb);
     delegate void OnPropListChanged ();
 
     class AreaSceneBlackboard
@@ -24,6 +25,7 @@ namespace Area
 
         public OnLevelLoaded onLevelLoaded;
         public OnEditingModeChanged onEditingModeChanged;
+        public OnEditingVolumeBrushChanged onEditingVolumeBrushChanged;
         public OnPropListChanged onPropListChanged;
 
         public AreaManager am;
@@ -40,6 +42,18 @@ namespace Area
             }
         }
         EditingMode editingModeInternal = EditingMode.Spot;
+
+        public EditingVolumeBrush editingVolumeBrush
+        {
+            get => editingVolumeBrushInternal;
+            set
+            {
+                brushChanged = editingVolumeBrushInternal != value;
+                editingVolumeBrushInternal = value;
+                onEditingVolumeBrushChanged?.Invoke (this);
+            }
+        }
+        EditingVolumeBrush editingVolumeBrushInternal = EditingVolumeBrush.Point;
 
         public bool repaintScene;
         public bool brushChanged;
@@ -69,6 +83,8 @@ namespace Area
         public (Vector4 Primary, Vector4 Secondary) propColor;
         public PropEditCommand propEditCommand;
         public PropEditFunctions propEditFunctions;
+
+        public RoadSubtype roadSubtype = RoadSubtype.GrassDirt;
 
         public bool hoverActive;
         public AreaVolumePoint lastPointHovered;

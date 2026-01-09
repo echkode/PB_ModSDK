@@ -151,7 +151,7 @@ namespace Area
             {
                 return;
             }
-            if (AreaManager.editingVolumeBrush == AreaManager.EditingVolumeBrush.Point)
+            if (editingVolumeBrush == EditingVolumeBrush.Point)
             {
                 return;
             }
@@ -169,16 +169,86 @@ namespace Area
                     color = AreaSceneGizmos.VolumeSelectionColor.Warning;
                     break;
             }
-            bb.gizmos.DrawVolumeSelectionHandles (bb.lastPointHovered.pointPositionLocal, color);
+            bb.gizmos.DrawVolumeSelectionHandles (editingVolumeBrush, bb.lastPointHovered.pointPositionLocal, color);
         }
+
+        public static void OnEditingVolumeBrushChanged (AreaSceneBlackboard bb) => editingVolumeBrush = bb.editingVolumeBrush;
 
         public static void ChangeVolumeBrush (AreaSceneBlackboard bb, Event e) => ChangeVolumeBrush (bb, e.delta.y > 0f);
         public static void ChangeVolumeBrush (AreaSceneBlackboard bb, bool forward)
         {
-            var v = (int)AreaManager.editingVolumeBrush;
-            v = v.OffsetAndWrap (forward, 0, (int)AreaManager.EditingVolumeBrush.Circle5x5);
-            AreaManager.editingVolumeBrush = (AreaManager.EditingVolumeBrush)v;
+            var v = (int)editingVolumeBrush;
+            v = v.OffsetAndWrap (forward, 0, (int)EditingVolumeBrush.Circle5x5);
+            editingVolumeBrush = (EditingVolumeBrush)v;
             bb.brushChanged = true;
+        }
+
+        public static bool IsEditingVolumeBrushPoint => editingVolumeBrush == EditingVolumeBrush.Point;
+
+        public static List<AreaVolumePoint> CollectPointsInBrush (AreaVolumePoint pointStart)
+        {
+            pointsToEdit.Clear ();
+            pointsToEdit.Add (pointStart);
+
+            var brush = editingVolumeBrush;
+            if (brush == EditingVolumeBrush.Circle3x3 || brush == EditingVolumeBrush.Square3x3)
+            {
+                // X+ : east
+                if (pointStart.pointsInSpot[1] != null)
+                    pointsToEdit.Add (pointStart.pointsInSpot[1]);
+
+                // Z+ : north
+                if (pointStart.pointsInSpot[2] != null)
+                    pointsToEdit.Add (pointStart.pointsInSpot[2]);
+
+                // X- : west
+                if (pointStart.pointsWithSurroundingSpots[6] != null)
+                    pointsToEdit.Add (pointStart.pointsWithSurroundingSpots[6]);
+
+                // Z- : south
+                if (pointStart.pointsWithSurroundingSpots[5] != null)
+                    pointsToEdit.Add (pointStart.pointsWithSurroundingSpots[5]);
+            }
+
+            if (brush == EditingVolumeBrush.Square3x3)
+            {
+                // X+ & Z+ : northeast
+                if (pointStart.pointsInSpot[3] != null)
+                    pointsToEdit.Add (pointStart.pointsInSpot[3]);
+
+                // X- & Z+ : northwest
+                var nw = pointStart.pointsWithSurroundingSpots[6]?.pointsInSpot[2];
+                if (nw != null)
+                    pointsToEdit.Add (nw);
+
+                // X- & Z- : southwest
+                if (pointStart.pointsWithSurroundingSpots[4] != null)
+                    pointsToEdit.Add (pointStart.pointsWithSurroundingSpots[4]);
+
+                // X+ & Z- : southeast
+                var se = pointStart.pointsInSpot[1]?.pointsWithSurroundingSpots[5];
+                if (se != null)
+                    pointsToEdit.Add (se);
+            }
+
+            if (brush == EditingVolumeBrush.Square2x2)
+            {
+                // X- : west
+                if (pointStart.pointsWithSurroundingSpots[6] != null)
+                    pointsToEdit.Add (pointStart.pointsWithSurroundingSpots[6]);
+
+                // Z- : south
+                if (pointStart.pointsWithSurroundingSpots[5] != null)
+                    pointsToEdit.Add (pointStart.pointsWithSurroundingSpots[5]);
+
+                // X- & Z- : southwest
+                if (pointStart.pointsWithSurroundingSpots[4] != null)
+                    pointsToEdit.Add (pointStart.pointsWithSurroundingSpots[4]);
+            }
+
+            pointsToEdit.Sort (sortPointsByIndex);
+
+            return pointsToEdit;
         }
 
         public static void PopulatePropList (AreaSceneBlackboard bb, List<PropTableEntry> altList = null)
@@ -279,5 +349,11 @@ namespace Area
         }
 
         static readonly List<PropTableEntry> collectedProps = new List<PropTableEntry> ();
+        static readonly List<AreaVolumePoint> pointsToEdit = new List<AreaVolumePoint> ();
+
+        static readonly System.Comparison<AreaVolumePoint> sortPointsByIndex = OrderPointsToEditByIndex;
+        static int OrderPointsToEditByIndex (AreaVolumePoint x, AreaVolumePoint y) => x.spotIndex.CompareTo (y.spotIndex);
+
+        static EditingVolumeBrush editingVolumeBrush;
     }
 }

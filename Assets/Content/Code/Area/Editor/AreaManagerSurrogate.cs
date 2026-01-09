@@ -865,13 +865,13 @@ namespace Area
         [FoldoutGroup (OdinGroup.Name.Ramps, false, VisibleIf = nameof(dataLoaded), Order = OdinGroup.Order.Ramps)]
         [HorizontalGroup (OdinGroup.Name.RampsButtons)]
         [Button ("Remove all", ButtonHeight = 40)]
-        public void RemoveAllRamps () => bb.am.RemoveRampsEverywhere ();
+        public void RemoveAllRamps () => RemoveRampsEverywhere (bb.am);
 
         [HorizontalGroup (OdinGroup.Name.RampsButtons)]
         [Button ("Generate\neverywhere", ButtonHeight = 40)]
-        public void GenerateRampsEverywhere () => GenerateRamps (AreaManager.SlopeProximityCheck.None);
+        public void GenerateRampsEverywhere () => GenerateRamps (SlopeProximityCheck.None);
 
-        void GenerateRamps (AreaManager.SlopeProximityCheck proximityCheck)
+        void GenerateRamps (SlopeProximityCheck proximityCheck)
         {
             if (!dirTextureMaps.Exists)
             {
@@ -881,13 +881,26 @@ namespace Area
             Heightmap.SetRampsEverywhere (bb.am, filePath, proximityCheck);
         }
 
+        void RemoveRampsEverywhere (AreaManager am)
+        {
+            for (var i = 0; i < am.points.Count; i += 1)
+            {
+                var point = am.points[i];
+                if (point != null)
+                {
+                    point.terrainOffset = 0f;
+                }
+            }
+            RebuildEverything ();
+        }
+
         [HorizontalGroup (OdinGroup.Name.RampsButtons)]
         [Button ("Generate\nstraight", ButtonHeight = 40)]
-        public void GenerateStraightRamps () => GenerateRamps (AreaManager.SlopeProximityCheck.LateralSingle);
+        public void GenerateStraightRamps () => GenerateRamps (SlopeProximityCheck.LateralSingle);
 
         [HorizontalGroup (OdinGroup.Name.RampsButtons)]
         [Button ("Generate\nwide straight", ButtonHeight = 40)]
-        public void GenerateWideRamps () => GenerateRamps (AreaManager.SlopeProximityCheck.LateralDouble);
+        public void GenerateWideRamps () => GenerateRamps (SlopeProximityCheck.LateralDouble);
 
         [ShowInInspector]
         [FoldoutGroup (OdinGroup.Name.Ramps)]
@@ -990,7 +1003,7 @@ namespace Area
             {
                 return;
             }
-            var filePath = DataPathHelper.GetCombinedCleanPath (dirTextureMaps.FullName, AreaManager.standardPropMaskVegetationFileName);
+            var filePath = DataPathHelper.GetCombinedCleanPath (dirTextureMaps.FullName, Heightmap.standardPropMaskVegetationFileName);
             Heightmap.ImportPropsFromTexture (bb.am, filePath);
         }
 

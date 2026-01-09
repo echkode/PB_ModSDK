@@ -127,9 +127,9 @@ namespace Area
             }
         }
 
-        public static bool CheckBrushPoints (AreaManager am, AreaVolumePoint pointStart, List<AreaVolumePoint> pointsToEdit, bool upSpots, AreaSceneHelper.FreeSpacePolicy freeSpacePolicy, bool log)
+        public static bool CheckBrushPoints (AreaManager am, AreaVolumePoint pointStart, List<AreaVolumePoint> pointsToEdit, bool upSpots, FreeSpacePolicy freeSpacePolicy, bool log)
         {
-            var pointsBrush = AreaManager.CollectPointsInBrush (pointStart, AreaManager.editingVolumeBrush);
+            var pointsBrush = AreaSceneModeHelper.CollectPointsInBrush (pointStart);
             if (log)
             {
                 Debug.Log ("Edit terrain | brush points (" + pointsBrush.Count + "): " + pointsBrush.Select (pt => pt.spotIndex).ToStringFormatted ());
@@ -138,7 +138,7 @@ namespace Area
             foreach (var point in pointsBrush)
             {
                 var result = AreaSceneHelper.VolumePointAllTerrain (am, point, upSpots, freeSpacePolicy);
-                if (result == AreaSceneHelper.TerrainResult.Error)
+                if (result == TerrainResult.Error)
                 {
                     if (log)
                     {
@@ -146,9 +146,9 @@ namespace Area
                     }
                     return false;
                 }
-                if (result == AreaSceneHelper.TerrainResult.FreeSpace)
+                if (result == TerrainResult.FreeSpace)
                 {
-                    if (freeSpacePolicy != AreaSceneHelper.FreeSpacePolicy.LookDownPass)
+                    if (freeSpacePolicy != FreeSpacePolicy.LookDownPass)
                     {
                         continue;
                     }

@@ -72,6 +72,8 @@ namespace Area
             surrogateTree = new PropertyTree<AreaManagerSurrogate> (new[] { surrogate });
             bb.onEditingModeChanged += surrogate.OnEditingModeChanged;
             lastEditingMode = bb.editingMode;
+            bb.onEditingVolumeBrushChanged += AreaSceneModeHelper.OnEditingVolumeBrushChanged;
+            bb.editingVolumeBrush = EditingVolumeBrush.Point;
         }
 
         protected override void OnDisable ()

@@ -34,7 +34,7 @@ namespace Area
             }
 
             face = AreaSceneHelper.GetCompassFromDirection (direction);
-            if (!AreaSceneTerrainShapeMode.CheckBrushPoints (bb.am, pointStart, pointsToEdit, true, AreaSceneHelper.FreeSpacePolicy.SlopePass, bb.enableTerrainShapeLogging))
+            if (!AreaSceneTerrainShapeMode.CheckBrushPoints (bb.am, pointStart, pointsToEdit, true, FreeSpacePolicy.SlopePass, bb.enableTerrainShapeLogging))
             {
                 if (bb.enableTerrainShapeLogging)
                 {

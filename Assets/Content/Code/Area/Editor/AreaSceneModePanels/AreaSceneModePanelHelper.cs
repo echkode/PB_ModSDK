@@ -286,19 +286,15 @@ namespace Area
     {
         [EnumDropdown]
         [LabelWidth (35f)]
-        public AreaManager.EditingVolumeBrush brush
+        public EditingVolumeBrush brush
         {
-            get => AreaManager.editingVolumeBrush;
-            set
-            {
-                AreaManager.editingVolumeBrush = value;
-                bb.brushChanged = true;
-            }
+            get => bb.editingVolumeBrush;
+            set => bb.editingVolumeBrush = value;
         }
 
         [PropertySpace (2f)]
         [EnumButtons]
-        public AreaManager.EditingVolumeBrush brushButtons
+        public EditingVolumeBrush brushButtons
         {
             get => brush;
             set => brush = value;
@@ -317,19 +313,26 @@ namespace Area
     {
         [EnumDropdown]
         [LabelWidth (35f)]
-        public AreaManager.RoadSubtype type
+        public RoadSubtype type
         {
-            get => AreaManager.roadSubtype;
-            set => AreaManager.roadSubtype = value;
+            get => bb.roadSubtype;
+            set => bb.roadSubtype = value;
         }
 
         [PropertySpace (2f)]
         [EnumButtons]
-        public AreaManager.RoadSubtype subtypeButtons
+        public RoadSubtype subtypeButtons
         {
             get => type;
             set => type = value;
         }
+
+        public RoadSubtypeSelector (AreaSceneBlackboard bb)
+        {
+            this.bb = bb;
+        }
+
+        readonly AreaSceneBlackboard bb;
     }
 
     [HideLabel, HideReferenceObjectPicker]

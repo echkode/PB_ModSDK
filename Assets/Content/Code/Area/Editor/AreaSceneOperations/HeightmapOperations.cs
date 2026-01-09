@@ -3,8 +3,12 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
+using PhantomBrigade.Data;
+
 namespace Area
 {
+    using Scene;
+
     public static class Heightmap
     {
         public sealed class Spec
@@ -23,6 +27,7 @@ namespace Area
         public delegate void ProcessDepthValues (Spec spec);
 
         public const string standardHeightmapFileName = "heightmap.png";
+        public const string standardPropMaskVegetationFileName = "mask_vegetation.png";
 
         public static void CalculateStandardHeightmapValues (Spec spec)
         {
@@ -279,7 +284,7 @@ namespace Area
                         var pointStateCurrent = pointCurrent.pointState;
                         if (pointStateCurrent == AreaVolumePointState.Full)
                         {
-                            am.TrySettingSlope (pointCurrent, slopeAdditionDesired, false);
+                            AreaSceneHelper.TrySettingSlope (am, pointCurrent, slopeAdditionDesired, false);
 
                             if (slopeAdditionDesired)
                                 slopeAdditionsFound += 1;
@@ -305,35 +310,35 @@ namespace Area
             Debug.Log ($"Slope import completed. Slope additions requested (G=255): {slopeAdditionsFound} | Slope removals requested (G=127): {slopeRemovalsFound}");
         }
 
-        public static void ImportRoadsFromTexture(AreaManager am, string filePath)
+        public static void ImportRoadsFromTexture (AreaManager am, string filePath)
         {
             if (!LoadHeightmapFromFile (am, filePath))
             {
                 return;
             }
+
             var sizeX = am.boundsFull.x;
             var sizeY = am.boundsFull.y;
             var sizeZ = am.boundsFull.z;
-
+            var pointsModified = new List<AreaVolumePoint> ();
             colorArray = textureDepthmap.GetPixels32 ();
-            List<AreaVolumePoint> pointsModified = new List<AreaVolumePoint> ();
 
-            int roadAdditions = 0;
-            int roadRemovals = 0;
+            var roadAdditions = 0;
+            var roadRemovals = 0;
 
             // Apply slopes once all volume changes are applied
-            for (int x = 0; x < sizeX; x++)
+            for (var x = 0; x < sizeX; x += 1)
             {
-                for (int z = 0; z < sizeZ; z++)
+                for (var z = 0; z < sizeZ; z += 1)
                 {
                     var colorIndex = z * sizeX + x;
                     var color = colorArray[colorIndex];
-                    bool roadDesired = color.b == (byte)255;
+                    var roadDesired = color.b == byte.MaxValue;
 
                     var posIndex = new Vector3Int (x, 0, z);
                     var index = AreaUtility.GetIndexFromVolumePosition (posIndex, am.boundsFull, skipBoundsCheck: true);
                     var pointCurrent = am.points[index];
-                    int iteration = 0;
+                    var iteration = 0;
 
                     while (true)
                     {
@@ -343,7 +348,7 @@ namespace Area
                         var pointStateCurrent = pointCurrent.pointState;
                         if (pointStateCurrent == AreaVolumePointState.Full)
                         {
-                            bool mismatch = pointCurrent.road != roadDesired;
+                            var mismatch = pointCurrent.road != roadDesired;
                             if (mismatch)
                             {
                                 pointCurrent.road = roadDesired;
@@ -361,7 +366,7 @@ namespace Area
                         }
 
                         // Get point below
-                        pointCurrent = pointCurrent.pointsInSpot[4];
+                        pointCurrent = pointCurrent.pointsInSpot[WorldSpace.Compass.Down];
                         iteration += 1;
 
                         if (iteration > sizeY)
@@ -370,12 +375,20 @@ namespace Area
                 }
             }
 
-            for (int i = 0; i < pointsModified.Count; ++i)
-                am.UpdateRoadConfigurations (pointsModified[i], AreaManager.roadSubtype);
+            for (var i = 0; i < pointsModified.Count; i += 1)
+            {
+                AreaSceneHelper.UpdateRoadConfigurations (am, pointsModified[i], RoadSubtype.GrassDirt);
+            }
 
             am.RebuildEverything ();
 
-            Debug.Log ($"Road import completed. Road additions requested (B=255): {roadAdditions} | Road removals: {roadRemovals} | Total points modified: {pointsModified.Count}");
+            Debug.LogFormat
+            (
+                "Road import completed. Road additions requested (B=255): {0} | Road removals: {1} | Total points modified: {2}",
+                roadAdditions,
+                roadRemovals,
+                pointsModified.Count
+            );
 
         }
 
@@ -441,7 +454,7 @@ namespace Area
                     }
 
                     var hex = UtilityColor.ToHexRGB (color);
-                    var group = am.GetPropGroupFromHex (hex);
+                    var group = GetPropGroupFromHex (am, hex);
                     if (group == null)
                         continue;
 
@@ -499,7 +512,7 @@ namespace Area
             }
         }
 
-        public static void SetRampsEverywhere (AreaManager am, string filePath, AreaManager.SlopeProximityCheck proximityCheck)
+        public static void SetRampsEverywhere (AreaManager am, string filePath, SlopeProximityCheck proximityCheck)
         {
             bool IsPointOnSurface (AreaVolumePoint point)
             {
@@ -519,7 +532,7 @@ namespace Area
                 if (!IsPointOnSurface (point))
                     continue;
 
-                am.TrySettingSlope (point, true, false, proximityCheck);
+                AreaSceneHelper.TrySettingSlope (am, point, true, false, proximityCheck);
             }
 
             if (am.rampImportOnGeneration)
@@ -528,6 +541,34 @@ namespace Area
                 return;
             }
             am.RebuildEverything ();
+        }
+
+        static DataBlockAreaPropGroup GetPropGroupFromHex (AreaManager am, string hex)
+        {
+            if (string.IsNullOrEmpty (hex))
+                return null;
+
+            if (am.propImportOverrides)
+            {
+                if (string.Equals (hex, propImportOverrideRedHex, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    DataLinkerCombatBiomes.data.propGroups.TryGetValue (am.propImportOverrideRed, out var group);
+                    return group;
+                }
+                if (string.Equals (hex, propImportOverrideYellowHex, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    DataLinkerCombatBiomes.data.propGroups.TryGetValue (am.propImportOverrideYellow, out var group);
+                    return group;
+                }
+                if (string.Equals (hex, propImportOverrideGreenHex, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    DataLinkerCombatBiomes.data.propGroups.TryGetValue (am.propImportOverrideGreen, out var group);
+                    return group;
+                }
+            }
+
+            DataLinkerCombatBiomes.data.propGroupsByColor.TryGetValue (hex, out var groupFromColor);
+            return groupFromColor;
         }
 
         static void StoreHeightmapInfoInternal(AreaManager am, int x, int z, int depthProcessed, byte slopeInfo, byte roadInfo)
@@ -600,7 +641,11 @@ namespace Area
         static Color32[] colorArray;
         static int maxDepthScaled;
 
+        static readonly string propImportOverrideRedHex = UtilityColor.ToHexRGB (new Color (1f, 0f, 0f));
+        static readonly string propImportOverrideYellowHex = UtilityColor.ToHexRGB (new Color (1f, 1f, 0f));
+        static readonly string propImportOverrideGreenHex = UtilityColor.ToHexRGB (new Color (0f, 1f, 0f));
+
         const byte minDepthScaled = 10;
-        const float terrainOffsetTopRamp = -1f / 3f;
+        const float terrainOffsetTopRamp = -AreaSceneHelper.rampOffset;
     }
 }

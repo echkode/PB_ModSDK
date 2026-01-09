@@ -50,8 +50,8 @@ namespace Area
                 case KeyCode.Mouse0:
                 case KeyCode.Mouse1:
                 {
-                    var proximityCheck = shift ? AreaManager.SlopeProximityCheck.LateralSingle : AreaManager.SlopeProximityCheck.None;
-                    bb.am.TrySettingSlope(pointStart, button == KeyCode.Mouse0, true, proximityCheck, true);
+                    var proximityCheck = shift ? SlopeProximityCheck.LateralSingle : SlopeProximityCheck.None;
+                    AreaSceneHelper.TrySettingSlope(bb.am, pointStart, button == KeyCode.Mouse0, true, proximityCheck, true);
                     break;
                 }
                 case KeyCode.Mouse2 when spotIndex.IsValidIndex(bb.am.points):
